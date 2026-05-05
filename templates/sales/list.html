@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sales History — Sport Shop{% endblock %}
+{% block page_title %}Sales History{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Stat strip ─────────────────────────────────────────── */
+  .sales-stats { grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
+
+  /* ── Filter bar ─────────────────────────────────────────── */
+  .filter-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-form .product-search { flex: 1; min-width: 200px; }
+  .filter-form input[type="date"].form-control {
+    width: auto;
+    font-family: var(--font-body);
+  }
+  .filter-arrow { color: var(--gray-400); font-size: 13px; }
+
+  /* ── Mobile sale card ───────────────────────────────────── */
+  .mobile-cards { display: none; }
+
+  .sale-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .sale-card:active {
+    transform: scale(0.98);
+    box-shadow: var(--shadow);
+  }
+
+  .sc-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .sc-bill {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .sc-amount {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--gray-900);
+    font-family: var(--font-display);
+  }
+  .sc-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--gray-500);
+    flex-wrap: wrap;
+  }
+  .sc-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sc-meta-left i { font-size: 11px; }
+  .sc-arrow {
+    color: var(--gray-300);
+    font-size: 14px;
+  }
+  .sc-note {
+    font-size: 12px;
+    color: var(--gray-500);
+    background: var(--gray-50);
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* ── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 1024px) {
+    .sales-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 768px) {
+    .desktop-table-wrap { display: none; }
+    .mobile-cards       { display: block; }
+
+    .filter-form { gap: 8px; }
+    .filter-form input[type="date"].form-control {
+      flex: 1;
+      min-width: 0;
+    }
+    .filter-arrow { display: none; }
+    .filter-form .btn { flex: 1; justify-content: center; }
+  }
+
+  @media (max-width: 480px) {
+    .sales-stats { grid-template-columns: 1fr 1fr; }
+    .sale-card { padding: 12px 14px; }
+    .sc-amount { font-size: 16px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ─────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Sales History</h1>
+    <p>All transactions recorded in {{ user.profile.shop.name }}</p>
+  </div>
+  <div class="page-header-right">
+    <a href="{% url 'sale_create' %}" class="btn btn-primary">
+      <i class="bi bi-cart-plus-fill"></i> New Sale
+    </a>
+    <a href="{% url 'reports' %}" class="btn btn-outline">
+      <i class="bi bi-bar-chart-fill"></i> Reports
+    </a>
+  </div>
+</div>
+
+<!-- ── Summary Strip ─────────────────────────────────────── -->
+<div class="stat-grid sales-stats">
+  <div class="stat-card">
+    <div class="stat-icon"><i class="bi bi-receipt-cutoff"></i></div>
+    <div class="stat-label">Total Sales</div>
+    <div class="stat-value">{{ total_count }}</div>
+    <div class="stat-sub">all time</div>
+  </div>
+  <div class="stat-card accent-success">
+    <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+    <div class="stat-label">Total Revenue</div>
+    <div class="stat-value" style="font-size:20px;">Rs. {{ total_revenue|floatformat:0 }}</div>
+    <div class="stat-sub">all time</div>
+  </div>
+  <div class="stat-card accent-info">
+    <div class="stat-icon"><i class="bi bi-calendar-day"></i></div>
+    <div class="stat-label">Today</div>
+    <div class="stat-value">{{ today_count }}</div>
+    <div class="stat-sub">Rs. {{ today_revenue|floatformat:0 }}</div>
+  </div>
+  <div class="stat-card accent-warning">
+    <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+    <div class="stat-label">Avg. Sale</div>
+    <div class="stat-value" style="font-size:20px;">Rs. {{ avg_sale|floatformat:0 }}</div>
+    <div class="stat-sub">per transaction</div>
+  </div>
+</div>
+
+
+<!-- ── Filters ────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body" style="padding:14px 16px;">
+    <form method="get" class="filter-form">
+
+      <div class="product-search">
+        <i class="bi bi-search"></i>
+        <input
+          type="text"
+          name="q"
+          value="{{ request.GET.q }}"
+          placeholder="Search bill number..."
+          inputmode="search"
+        />
+      </div>
+
+      <input
+        type="date"
+        name="date_from"
+        value="{{ request.GET.date_from }}"
+        class="form-control"
+        aria-label="From date"
+      />
+      <span class="filter-arrow">to</span>
+      <input
+        type="date"
+        name="date_to"
+        value="{{ request.GET.date_to }}"
+        class="form-control"
+        aria-label="To date"
+      />
+
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="bi bi-funnel-fill"></i> Filter
+      </button>
+      <a href="{% url 'sales_list' %}" class="btn btn-outline btn-sm">
+        <i class="bi bi-x-lg"></i> Clear
+      </a>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     DESKTOP — Table view
+═══════════════════════════════════════════════════════════ -->
+<div class="card desktop-table-wrap">
+  <div style="overflow-x:auto;">
+    <table class="data-table" id="sales-table">
+      <thead>
+        <tr>
+          <th>Bill No.</th>
+          <th>Date &amp; Time</th>
+          <th>Items</th>
+          <th>Served By</th>
+          <th>Notes</th>
+          <th style="text-align:right;">Amount</th>
+          <th style="text-align:center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in sales %}
+        <tr>
+          <td>
+            <a href="{% url 'sale_detail' sale.pk %}" style="font-weight:600;color:var(--primary);text-decoration:none;">
+              #{{ sale.sale_number }}
+            </a>
+          </td>
+          <td>
+            <div style="font-size:13px;font-weight:500;">{{ sale.created_at|date:"M d, Y" }}</div>
+            <div style="font-size:11px;color:var(--gray-400);">{{ sale.created_at|date:"g:i A" }}</div>
+          </td>
+          <td>
+            <span class="badge-pill badge-neutral">
+              {{ sale.items.count }} item{{ sale.items.count|pluralize }}
+            </span>
+          </td>
+          <td style="color:var(--gray-600);">{{ sale.created_by.username }}</td>
+          <td style="color:var(--gray-500);font-size:13px;">{{ sale.notes|default:"—"|truncatechars:30 }}</td>
+          <td style="text-align:right;font-weight:700;color:var(--gray-900);font-size:15px;">
+            Rs. {{ sale.total_amount|floatformat:0 }}
+          </td>
+          <td style="text-align:center;">
+            <a href="{% url 'sale_detail' sale.pk %}" class="btn btn-ghost btn-sm" title="View details">
+              <i class="bi bi-eye-fill"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <i class="bi bi-receipt"></i>
+              <h3>No sales found</h3>
+              <p>{% if request.GET.q or request.GET.date_from %}Try adjusting your filters.{% else %}Sales will appear here once you complete transactions.{% endif %}</p>
+              <a href="{% url 'sale_create' %}" class="btn btn-primary" style="margin-top:12px;">
+                <i class="bi bi-cart-plus-fill"></i> Create First Sale
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% include "sales/_pagination.html" %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     MOBILE — Card view (one tappable card per sale)
+═══════════════════════════════════════════════════════════ -->
+<div class="mobile-cards">
+  {% for sale in sales %}
+  <a href="{% url 'sale_detail' sale.pk %}" class="sale-card">
+    <div class="sc-top">
+      <div class="sc-bill">#{{ sale.sale_number }}</div>
+      <div class="sc-amount">Rs. {{ sale.total_amount|floatformat:0 }}</div>
+    </div>
+    <div class="sc-meta">
+      <div class="sc-meta-left">
+        <i class="bi bi-calendar3"></i>
+        {{ sale.created_at|date:"M d, g:i A" }}
+        <span style="color:var(--gray-300);">·</span>
+        <i class="bi bi-bag"></i>
+        {{ sale.items.count }} item{{ sale.items.count|pluralize }}
+        <span style="color:var(--gray-300);">·</span>
+        <i class="bi bi-person"></i>
+        {{ sale.created_by.username }}
+      </div>
+      <i class="bi bi-chevron-right sc-arrow"></i>
+    </div>
+    {% if sale.notes %}
+    <div class="sc-note">
+      <i class="bi bi-chat-left-text"></i>
+      {{ sale.notes|truncatechars:60 }}
+    </div>
+    {% endif %}
+  </a>
+  {% empty %}
+  <div class="card">
+    <div class="empty-state">
+      <i class="bi bi-receipt"></i>
+      <h3>No sales found</h3>
+      <p>{% if request.GET.q or request.GET.date_from %}Try adjusting your filters.{% else %}Sales will appear here once you complete transactions.{% endif %}</p>
+      <a href="{% url 'sale_create' %}" class="btn btn-primary" style="margin-top:12px;">
+        <i class="bi bi-cart-plus-fill"></i> Create First Sale
+      </a>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if is_paginated %}
+  <div style="padding:14px 0;display:flex;justify-content:center;gap:6px;">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}" class="btn btn-outline btn-sm">
+      <i class="bi bi-chevron-left"></i> Prev
+    </a>
+    {% endif %}
+    <span style="display:flex;align-items:center;font-size:13px;color:var(--gray-500);padding:0 12px;">
+      {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}" class="btn btn-outline btn-sm">
+      Next <i class="bi bi-chevron-right"></i>
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

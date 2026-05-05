@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Login — Sport Shop Nepal{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Mobile-tuned auth styles ─────────────────────────── */
+  .auth-input-wrap { position: relative; }
+  .pass-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 18px;
+    width: 36px;     /* big touch target on mobile */
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background .15s;
+  }
+  .pass-toggle:hover  { background: var(--gray-100); }
+  .pass-toggle:active { background: var(--gray-200); }
+
+  .forgot-link {
+    text-align: right;
+    margin: -8px 0 16px;
+  }
+  .forgot-link a {
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 8px;     /* easier tap target */
+    margin: -6px -8px;
+    display: inline-block;
+  }
+
+  .signup-link {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 14px;
+    color: var(--gray-500);
+  }
+  .signup-link a {
+    color: var(--primary);
+    font-weight: 500;
+    padding: 6px 8px;
+    margin: -6px -8px;
+    display: inline-block;
+  }
+
+  @media (max-width: 480px) {
+    .auth-card {
+      padding: 32px 22px !important;
+      border-radius: var(--radius-lg);
+    }
+    .auth-logo-text h1   { font-size: 18px; }
+    .auth-title          { font-size: 19px; }
+    .auth-subtitle       { font-size: 13px; }
+  }
+</style>
+{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page">
+  <div class="auth-card">
+
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <i class="bi bi-trophy-fill"></i>
+      </div>
+      <div class="auth-logo-text">
+        <h1>SportShop</h1>
+        <p>Nepal Management System</p>
+      </div>
+    </div>
+
+    <h2 class="auth-title">Welcome back</h2>
+    <p class="auth-subtitle">Sign in to access your shop dashboard</p>
+
+    {% if form.errors %}
+    <div class="alert-box danger mb-16">
+      <i class="bi bi-x-circle-fill"></i>
+      <div>
+        <strong>Login failed.</strong> Please check your username/email and password.
+      </div>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert-box {% if message.tags == 'success' %}success{% else %}info{% endif %} mb-16">
+        <i class="bi bi-{% if message.tags == 'success' %}check{% else %}info{% endif %}-circle-fill"></i>
+        <div>{{ message }}</div>
+      </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}" />
+
+      <div class="form-group">
+        <label class="form-label" for="id_username">
+          Username or Email <span class="req">*</span>
+        </label>
+        <input
+          type="text"
+          id="id_username"
+          name="username"
+          class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+          placeholder="Username or email address"
+          autocomplete="username"
+          autocapitalize="none"
+          autocorrect="off"
+          inputmode="email"
+          autofocus
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="id_password">
+          Password <span class="req">*</span>
+        </label>
+        <div class="auth-input-wrap">
+          <input
+            type="password"
+            id="id_password"
+            name="password"
+            class="form-control"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+            style="padding-right: 48px;"
+          />
+          <button type="button" class="pass-toggle" onclick="togglePassword()" aria-label="Toggle password visibility">
+            <i class="bi bi-eye" id="pass-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="forgot-link">
+        <a href="{% url 'password_reset' %}">Forgot password?</a>
+      </div>
+
+      <button type="submit" class="btn btn-primary"
+              style="width:100%;justify-content:center;padding:13px;font-size:15px;margin-top:4px;">
+        <i class="bi bi-box-arrow-in-right"></i>
+        Sign In
+      </button>
+
+      <div class="signup-link">
+        Don't have an account?
+        <a href="{% url 'signup' %}">Create one</a>
+      </div>
+    </form>
+
+    <div class="auth-footer">
+      <i class="bi bi-shield-lock"></i>
+      Secured access — Sport Shop Nepal
+    </div>
+  </div>
+</div>
+
+<script>
+  function togglePassword() {
+    const input = document.getElementById('id_password');
+    const eye   = document.getElementById('pass-eye');
+    if (input.type === 'password') {
+      input.type = 'text';
+      eye.className = 'bi bi-eye-slash';
+    } else {
+      input.type = 'password';
+      eye.className = 'bi bi-eye';
+    }
+  }
+</script>
+{% endblock %}

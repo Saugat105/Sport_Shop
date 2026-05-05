@@ -1,0 +1,17 @@
+{% if is_paginated %}
+<div style="padding:16px 20px;border-top:1px solid var(--gray-100);display:flex;justify-content:center;gap:6px;align-items:center;flex-wrap:wrap;">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}" class="btn btn-outline btn-sm">
+    <i class="bi bi-chevron-left"></i> Prev
+  </a>
+  {% endif %}
+  <span style="display:flex;align-items:center;font-size:13px;color:var(--gray-500);padding:0 8px;">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}" class="btn btn-outline btn-sm">
+    Next <i class="bi bi-chevron-right"></i>
+  </a>
+  {% endif %}
+</div>
+{% endif %}

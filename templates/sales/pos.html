@@ -1,0 +1,994 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}New Sale (POS) — {{ user.profile.shop.name }}{% endblock %}
+{% block page_title %}Point of Sale{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-body { padding: 16px 24px; }
+
+  /* ── Category filter tabs ───────────────────────────────── */
+  .cat-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    margin-bottom: 14px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .cat-tabs::-webkit-scrollbar { display: none; }
+  .cat-tab {
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1.5px solid var(--gray-300);
+    background: #fff;
+    color: var(--gray-600);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .cat-tab:hover  { border-color: var(--primary); color: var(--primary); }
+  .cat-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  /* ── Receipt ────────────────────────────────────────────── */
+  .receipt {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    border: 1px dashed var(--gray-300);
+    border-radius: var(--radius);
+    padding: 18px;
+    background: var(--gray-50);
+  }
+  .receipt-title    { text-align:center; font-size:16px; font-weight:bold; margin-bottom:4px; }
+  .receipt-sub      { text-align:center; font-size:11px; color:var(--gray-500); margin-bottom:12px; }
+  .receipt-divider  { border:none; border-top:1px dashed var(--gray-400); margin:10px 0; }
+  .receipt-row      { display:flex; justify-content:space-between; margin-bottom:3px; }
+  .receipt-row.total{ font-weight:bold; font-size:15px; margin-top:6px; }
+  .receipt-footer   { text-align:center; font-size:11px; color:var(--gray-500); margin-top:10px; }
+
+  /* ── Spinner ────────────────────────────────────────────── */
+  .spinner-inline {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Confirm modal footer ───────────────────────────────── */
+  .confirm-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--gray-100);
+    overflow: hidden;
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  }
+  .confirm-btn {
+    padding: 16px 10px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font-body);
+    transition: filter .15s;
+  }
+  .confirm-btn:hover { filter: brightness(0.93); }
+  .confirm-btn.back  { background: #fff; color: var(--gray-600); border-right: 1px solid var(--gray-100); }
+  .confirm-btn.yes   { background: var(--success); color: #fff; }
+
+  .confirm-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .confirm-item-row:last-child { border-bottom: none; }
+
+
+  /* ══════════════════════════════════════════════════════════
+     MOBILE FLOATING CART BAR  (like Uber Eats / Square / Toast)
+  ══════════════════════════════════════════════════════════ */
+  .mobile-cart-fab {
+    display: none;
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    z-index: 60;
+    background: var(--primary-dark);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 18px;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.25);
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    animation: fab-pop .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes fab-pop {
+    from { transform: translateY(80px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .mobile-cart-fab .fab-left {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .mobile-cart-fab .fab-count {
+    background: rgba(255,255,255,0.2);
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  .mobile-cart-fab .fab-total {
+    font-family: var(--font-display);
+    font-size: 18px;
+  }
+
+  /* Mobile cart drawer (slides up when FAB tapped) */
+  .mobile-cart-drawer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(15,23,42,0.55);
+    align-items: flex-end;
+  }
+  .mobile-cart-drawer.open {
+    display: flex;
+    animation: fade-in .2s;
+  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .mobile-cart-sheet {
+    background: #fff;
+    width: 100%;
+    max-height: 88vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(0);
+    animation: slide-up .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  .mobile-cart-handle {
+    width: 40px; height: 4px;
+    background: var(--gray-300);
+    border-radius: 2px;
+    margin: 10px auto 0;
+  }
+
+
+  /* ══════════════════════════════════════════════════════════
+     RESPONSIVE
+  ══════════════════════════════════════════════════════════ */
+
+  @media (max-width: 768px) {
+    .page-body { padding: 12px 14px 90px; /* extra bottom for FAB */ }
+
+    /* Hide desktop right cart panel — replaced by FAB + drawer */
+    .pos-grid > .cart-panel { display: none; }
+    .pos-grid {
+      grid-template-columns: 1fr;
+      height: auto;
+      max-height: none;
+    }
+    .products-panel { height: auto; }
+    .products-scroll { max-height: none; }
+
+    /* Tighter category tabs on mobile */
+    .cat-tab { font-size: 12px; padding: 6px 12px; }
+
+    /* Mobile FAB shows only when cart has items */
+    .mobile-cart-fab.visible { display: flex; }
+
+    /* Product tiles: 2 columns on phones, 3 on tablets */
+    .product-tiles { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; }
+  }
+
+  @media (max-width: 420px) {
+    .product-tiles { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+    .product-tile { padding: 10px; }
+    .tile-name { font-size: 12px; line-height: 1.25; }
+    .tile-price { font-size: 14px; }
+    .tile-stock { font-size: 10px; }
+
+    .page-body { padding: 10px 12px 90px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}" />
+
+<div class="pos-grid">
+
+  <!-- ════════════════════════════════════════════════════════
+       LEFT — Product Selection
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="products-panel">
+
+    <div style="margin-bottom:12px;">
+      <div class="product-search-wrap">
+        <div class="product-search">
+          <i class="bi bi-search"></i>
+          <input
+            type="text"
+            id="pos-search"
+            placeholder="Search products..."
+            autocomplete="off"
+            inputmode="search"
+          />
+        </div>
+      </div>
+      <div class="cat-tabs" id="cat-tabs">
+        <button type="button" class="cat-tab active" data-cat="all">All</button>
+        {% for cat in categories %}
+        <button type="button" class="cat-tab" data-cat="{{ cat.name|lower }}">{{ cat.name }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="products-scroll">
+      {% if products %}
+      <div class="product-tiles" id="product-tiles">
+        {% for product in products %}
+        <div
+          class="product-tile {% if product.stock_quantity == 0 %}out-of-stock{% endif %}"
+          data-id="{{ product.id }}"
+          data-name="{{ product.name }}"
+          data-price="{{ product.price }}"
+          data-stock="{{ product.stock_quantity }}"
+          data-cat="{{ product.category.name|lower }}"
+          onclick="addToCart(this)"
+        >
+          <div class="tile-cat">{{ product.category.name }}</div>
+          <div class="tile-name">{{ product.name }}</div>
+          <div class="tile-price">Rs. {{ product.price|floatformat:0 }}<span>/unit</span></div>
+          <div class="tile-stock {% if product.stock_quantity == 0 %}out{% elif product.is_low_stock %}low{% endif %}">
+            {% if product.stock_quantity == 0 %}
+              <i class="bi bi-x-circle"></i> Out of stock
+            {% elif product.is_low_stock %}
+              <i class="bi bi-exclamation-triangle"></i> Low: {{ product.stock_quantity }} left
+            {% else %}
+              <i class="bi bi-check-circle"></i> {{ product.stock_quantity }} in stock
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-box-seam"></i>
+        <h3>No products available</h3>
+        <p>Add products to inventory first.</p>
+        <a href="{% url 'product_add' %}" class="btn btn-primary" style="margin-top:12px;">Add Product</a>
+      </div>
+      {% endif %}
+
+      <div id="no-results" style="display:none;" class="empty-state">
+        <i class="bi bi-search"></i>
+        <h3>No products found</h3>
+        <p>Try a different search or category.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       RIGHT — Cart (desktop only — hidden on mobile via CSS)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="cart-panel" id="cart-panel">
+     
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     MOBILE CART FAB  (sticky bottom button — like food delivery apps)
+═══════════════════════════════════════════════════════════════ -->
+<button type="button" class="mobile-cart-fab" id="mobile-cart-fab" onclick="openCartDrawer()">
+  <div class="fab-left">
+    <i class="bi bi-cart3" style="font-size:18px;"></i>
+    <span class="fab-count" id="fab-count">0</span>
+    <span>View Cart</span>
+  </div>
+  <div class="fab-total">Rs. <span id="fab-total">0</span></div>
+</button>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     MOBILE CART DRAWER  (slides up from bottom)
+═══════════════════════════════════════════════════════════════ -->
+<div class="mobile-cart-drawer" id="cart-drawer" onclick="closeCartDrawerIfBackdrop(event)">
+  <div class="mobile-cart-sheet">
+    <div class="mobile-cart-handle"></div>
+    <div id="mobile-cart-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;"></div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     CONFIRM SALE MODAL
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box" style="max-width:420px;overflow:hidden;padding:0;">
+
+    <div style="background:linear-gradient(135deg,#1A7A4A 0%,#22C55E 100%);padding:28px 24px 24px;text-align:center;">
+      <div style="width:64px;height:64px;background:rgba(255,255,255,0.18);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:2px solid rgba(255,255,255,0.3);">
+        <i class="bi bi-bag-check-fill" style="font-size:28px;color:#fff;"></i>
+      </div>
+      <h3 style="color:#fff;font-size:19px;margin:0 0 5px;font-weight:600;">
+        Confirm Sale
+      </h3>
+      <p style="color:rgba(255,255,255,0.78);font-size:13px;margin:0;">
+        Review your order before completing
+      </p>
+    </div>
+
+    <div style="padding:18px 20px;">
+      <div id="confirm-items" style="margin-bottom:14px;max-height:35vh;overflow-y:auto;"></div>
+
+      <div style="border-top:1px dashed var(--gray-300);margin-bottom:14px;"></div>
+
+      <div id="confirm-discount-row" style="display:none;margin-bottom:10px;background:var(--success-bg);border-radius:var(--radius);padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--gray-600);margin-bottom:4px;">
+          <span>Subtotal</span>
+          <span>Rs. <span id="confirm-subtotal">0</span></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--success-text);">
+          <span><i class="bi bi-tag-fill"></i> Discount applied</span>
+          <span>&#8722; Rs. <span id="confirm-discount">0</span></span>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--primary-bg);border:1.5px solid var(--primary-muted);border-radius:var(--radius-lg);padding:14px 16px;">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);font-weight:600;margin-bottom:2px;">
+            Total to Collect
+          </div>
+          <div style="font-size:12px;color:var(--gray-500);" id="confirm-item-count"></div>
+        </div>
+        <div style="font-family:var(--font-display);font-size:26px;color:var(--primary-dark);line-height:1;">
+          Rs.&nbsp;<span id="confirm-total">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="confirm-btn-row">
+      <button class="confirm-btn back" onclick="closeModal('confirm-modal')">
+        <i class="bi bi-arrow-left-circle-fill"></i> Go Back
+      </button>
+      <button class="confirm-btn yes" id="confirm-yes-btn" onclick="confirmAndSell()">
+        <i class="bi bi-check2-circle"></i> Yes, Sell!
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     RECEIPT MODAL
+═══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="receipt-modal">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-head">
+      <h3>
+        <i class="bi bi-receipt-cutoff" style="color:var(--success);margin-right:8px;"></i>
+        Sale Complete!
+      </h3>
+      <button class="modal-close" onclick="closeModal('receipt-modal')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="receipt" id="receipt-content"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="window.print()">
+        <i class="bi bi-printer-fill"></i> Print
+      </button>
+      <button class="btn btn-primary" onclick="startNewSale()">
+        <i class="bi bi-plus-circle-fill"></i> New Sale
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden template for the cart inner HTML — re-used in desktop panel + mobile drawer -->
+<template id="cart-template">
+  <div class="cart-header">
+    <div class="cart-header-title">
+      <i class="bi bi-cart3"></i>
+      Current Bill
+      <span class="cart-count" data-bind="count">0</span>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" data-action="clear" style="display:none;color:var(--danger);">
+      <i class="bi bi-trash3"></i> Clear
+    </button>
+  </div>
+
+  <div class="cart-items" data-bind="items">
+    <div class="cart-empty">
+      <i class="bi bi-cart-x"></i>
+      <span>Tap a product to add it to the bill</span>
+    </div>
+  </div>
+
+  <div class="cart-footer">
+    <div class="cart-total-row" style="margin-bottom:8px;">
+      <span class="cart-total-label" style="font-size:13px;color:var(--gray-500);">Subtotal</span>
+      <span style="font-size:15px;font-weight:500;color:var(--gray-700);">
+        Rs. <span data-bind="subtotal">0</span>
+      </span>
+    </div>
+
+    <div style="background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">
+        <i class="bi bi-tag-fill" style="color:var(--success);margin-right:4px;"></i> Discount
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select data-role="discount-type" class="form-control" style="width:110px;padding:7px 10px;font-size:13px;">
+          <option value="amount">Rs. Amount</option>
+          <option value="percent">Percent %</option>
+        </select>
+        <input type="number" data-role="discount-value" class="form-control"
+               style="flex:1;padding:7px 10px;font-size:13px;"
+               placeholder="0" min="0" value="" inputmode="decimal" />
+        <button type="button" class="btn btn-ghost btn-sm" data-action="clear-discount" title="Remove discount">
+          <i class="bi bi-x-circle"></i>
+        </button>
+      </div>
+      <div data-bind="discount-preview" style="display:none;margin-top:8px;font-size:12px;color:var(--success);font-weight:500;">
+        <i class="bi bi-check-circle-fill"></i>
+        <span data-bind="discount-preview-text"></span>
+      </div>
+    </div>
+
+    <div class="cart-total-row">
+      <span class="cart-total-label">Total</span>
+      <span class="cart-total-value">
+        <span class="cart-total-currency">Rs.</span>
+        <span data-bind="total">0</span>
+      </span>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:2px;">
+      <button type="button" class="btn btn-outline" data-action="toggle-note" title="Add note" style="flex-shrink:0;">
+        <i class="bi bi-chat-left-text"></i>
+      </button>
+      <button type="button" class="btn btn-success" data-action="checkout" disabled
+              style="flex:1;justify-content:center;font-size:15px;padding:12px;">
+        <i class="bi bi-check2-circle"></i> Complete Sale
+      </button>
+    </div>
+
+    <div data-bind="note-wrap" style="display:none;margin-top:10px;">
+      <input type="text" data-role="sale-note" class="form-control"
+             placeholder="Optional note (e.g. customer name)..." />
+    </div>
+  </div>
+</template>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════
+// SHARED CART STATE  (single source of truth)
+// ══════════════════════════════════════════════════════════════
+let cart          = {};
+let lastSaleItems = {};
+let saleNote      = '';
+let discountType  = 'amount';
+let discountValue = 0;
+
+const SHOP_NAME = '{{ user.profile.shop.name|escapejs }}';
+const SHOP_ADDR = '{{ user.profile.shop.address|escapejs|default:"Nepal" }}';
+const SHOP_PHONE= '{{ user.profile.shop.phone|escapejs|default:"" }}';
+
+function getCSRF() { return document.getElementById('csrf-token').value; }
+
+// ══════════════════════════════════════════════════════════════
+// CART PANELS  (clone template into desktop + mobile drawer)
+// ══════════════════════════════════════════════════════════════
+function buildCartPanel(target) {
+  const tpl = document.getElementById('cart-template');
+  const clone = tpl.content.cloneNode(true);
+  target.innerHTML = '';
+  target.appendChild(clone);
+
+  // Wire actions
+  target.querySelector('[data-action="clear"]').addEventListener('click', clearCart);
+  target.querySelector('[data-action="clear-discount"]').addEventListener('click', clearDiscount);
+  target.querySelector('[data-action="toggle-note"]').addEventListener('click', toggleNote);
+  target.querySelector('[data-action="checkout"]').addEventListener('click', openConfirmModal);
+
+  target.querySelector('[data-role="discount-type"]').addEventListener('change', function() {
+    discountType = this.value;
+    syncDiscountInputs();
+    renderCart();
+  });
+  target.querySelector('[data-role="discount-value"]').addEventListener('input', function() {
+    discountValue = parseFloat(this.value) || 0;
+    syncDiscountInputs();
+    renderCart();
+  });
+  target.querySelector('[data-role="sale-note"]').addEventListener('input', function() {
+    saleNote = this.value;
+    syncNoteInputs();
+  });
+}
+
+// Build BOTH cart panels (desktop sidebar + mobile drawer body)
+const desktopCart = document.getElementById('cart-panel');
+const mobileCart  = document.getElementById('mobile-cart-inner');
+buildCartPanel(desktopCart);
+buildCartPanel(mobileCart);
+
+// Sync discount values across both panels
+function syncDiscountInputs() {
+  document.querySelectorAll('[data-role="discount-type"]').forEach(el => el.value = discountType);
+
+  document.querySelectorAll('[data-role="discount-value"]').forEach(el => {
+    // Don't sync the input the user is currently typing in — that's what's causing
+    // the "0 keeps coming back" bug
+    if (el === document.activeElement) return;
+
+    // For the OTHER (non-focused) panel: keep field empty when value is 0,
+    // not literally "0" — empty placeholder looks cleaner and matches input behavior
+    const display = discountValue > 0 ? String(discountValue) : '';
+    if (el.value !== display) el.value = display;
+  });
+}
+function syncNoteInputs() {
+  document.querySelectorAll('[data-role="sale-note"]').forEach(el => {
+    if (el.value !== saleNote) el.value = saleNote;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// ADD / REMOVE / RENDER CART
+// ══════════════════════════════════════════════════════════════
+function addToCart(tile) {
+  const id    = tile.dataset.id;
+  const name  = tile.dataset.name;
+  const price = parseFloat(tile.dataset.price);
+  const stock = parseInt(tile.dataset.stock);
+
+  if (stock === 0) {
+    showToast('This product is out of stock.', 'error');
+    return;
+  }
+  if (cart[id]) {
+    if (cart[id].qty >= stock) {
+      showToast('Only ' + stock + ' available for "' + name + '".', 'warning');
+      return;
+    }
+    cart[id].qty++;
+  } else {
+    cart[id] = { name, price, qty: 1, stock };
+  }
+
+  // Tile tap feedback
+  tile.style.transform = 'scale(0.95)';
+  setTimeout(() => { tile.style.transform = ''; }, 120);
+  renderCart();
+}
+
+function changeQty(id, delta) {
+  if (!cart[id]) return;
+  cart[id].qty += delta;
+  if (cart[id].qty <= 0) delete cart[id];
+  else if (cart[id].qty > cart[id].stock) cart[id].qty = cart[id].stock;
+  renderCart();
+}
+window.changeQty = changeQty;
+function removeItem(id) { delete cart[id]; renderCart(); }
+window.removeItem = removeItem;
+
+function clearCart() {
+  if (!Object.keys(cart).length) return;
+  if (!confirm('Clear all items from the bill?')) return;
+  cart = {};
+  renderCart();
+}
+
+// Renders the SAME content into both desktop + mobile panels at once
+function renderCart() {
+  const entries = Object.entries(cart);
+  let subtotal = 0;
+  let totalQty = 0;
+  entries.forEach(([_, item]) => {
+    subtotal += item.qty * item.price;
+    totalQty += item.qty;
+  });
+
+  // Calculate discount
+  let discountAmt = 0;
+  if (discountValue > 0) {
+    if (discountType === 'percent') {
+      const v = Math.min(discountValue, 100);
+      discountAmt = subtotal * v / 100;
+    } else {
+      discountAmt = Math.min(discountValue, subtotal);
+    }
+  }
+  const total = Math.max(subtotal - discountAmt, 0);
+
+  // Update both desktop + mobile panels
+  document.querySelectorAll('[data-bind="count"]').forEach(el => el.textContent = totalQty);
+  document.querySelectorAll('[data-bind="subtotal"]').forEach(el => el.textContent = subtotal.toLocaleString());
+  document.querySelectorAll('[data-bind="total"]').forEach(el => el.textContent = Math.round(total).toLocaleString());
+
+  document.querySelectorAll('[data-action="checkout"]').forEach(el => el.disabled = entries.length === 0);
+  document.querySelectorAll('[data-action="clear"]').forEach(el => {
+    el.style.display = entries.length === 0 ? 'none' : '';
+  });
+
+  // Render items in each cart panel
+  document.querySelectorAll('[data-bind="items"]').forEach(itemsEl => {
+    if (entries.length === 0) {
+      itemsEl.innerHTML =
+        '<div class="cart-empty">' +
+          '<i class="bi bi-cart-x"></i>' +
+          '<span>Tap a product to add it to the bill</span>' +
+        '</div>';
+      return;
+    }
+    let html = '';
+    entries.forEach(([id, item]) => {
+      const sub = item.qty * item.price;
+      html +=
+        '<div class="cart-item">' +
+          '<div>' +
+            '<div class="cart-item-name">' + escapeHtml(item.name) + '</div>' +
+            '<div class="cart-item-unit">Rs. ' + item.price.toLocaleString() + ' / unit</div>' +
+          '</div>' +
+          '<div class="cart-item-right">' +
+            '<div class="cart-item-subtotal">Rs. ' + sub.toLocaleString() + '</div>' +
+            '<div class="qty-control">' +
+              '<button type="button" class="qty-btn" onclick="changeQty(\'' + id + '\',-1)">&#8722;</button>' +
+              '<span class="qty-num">' + item.qty + '</span>' +
+              '<button type="button" class="qty-btn" onclick="changeQty(\'' + id + '\',1)">+</button>' +
+              '<button type="button" class="qty-btn" onclick="removeItem(\'' + id + '\')" ' +
+                'style="color:var(--danger);border-color:var(--danger-bg);margin-left:4px;">' +
+                '<i class="bi bi-x"></i>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    });
+    itemsEl.innerHTML = html;
+  });
+
+  // Discount preview text
+  document.querySelectorAll('[data-bind="discount-preview"]').forEach(prev => {
+    const text = prev.querySelector('[data-bind="discount-preview-text"]');
+    if (discountValue > 0 && discountAmt > 0) {
+      if (discountType === 'percent') {
+        text.textContent = discountValue + '% off — saving Rs. ' + Math.round(discountAmt).toLocaleString();
+      } else {
+        text.textContent = 'Rs. ' + discountAmt.toLocaleString() + ' discount applied';
+      }
+      prev.style.display = '';
+    } else {
+      prev.style.display = 'none';
+    }
+  });
+
+  // Update mobile FAB
+  updateMobileFab(totalQty, total);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function clearDiscount() {
+  discountType  = 'amount';
+  discountValue = 0;
+  syncDiscountInputs();
+  renderCart();
+}
+
+function toggleNote() {
+  const wraps = document.querySelectorAll('[data-bind="note-wrap"]');
+  const open  = wraps[0].style.display === 'none';
+  wraps.forEach(w => w.style.display = open ? '' : 'none');
+  if (open) {
+    setTimeout(() => {
+      const visible = Array.from(document.querySelectorAll('[data-role="sale-note"]'))
+        .find(el => el.offsetParent !== null);
+      if (visible) visible.focus();
+    }, 50);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MOBILE FAB + DRAWER
+// ══════════════════════════════════════════════════════════════
+function updateMobileFab(qty, total) {
+  const fab = document.getElementById('mobile-cart-fab');
+  if (qty > 0) {
+    fab.classList.add('visible');
+    document.getElementById('fab-count').textContent = qty;
+    document.getElementById('fab-total').textContent = Math.round(total).toLocaleString();
+  } else {
+    fab.classList.remove('visible');
+  }
+}
+
+function openCartDrawer() {
+  document.getElementById('cart-drawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeCartDrawer() {
+  document.getElementById('cart-drawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeCartDrawerIfBackdrop(e) {
+  if (e.target.id === 'cart-drawer') closeCartDrawer();
+}
+window.openCartDrawer = openCartDrawer;
+window.closeCartDrawerIfBackdrop = closeCartDrawerIfBackdrop;
+
+// ══════════════════════════════════════════════════════════════
+// CONFIRM SALE MODAL
+// ══════════════════════════════════════════════════════════════
+function openConfirmModal() {
+  const entries = Object.entries(cart);
+  if (!entries.length) return;
+
+  let itemsHtml = '';
+  let subtotal = 0;
+  entries.forEach(([_, item]) => {
+    const sub = item.qty * item.price;
+    subtotal += sub;
+    itemsHtml +=
+      '<div class="confirm-item-row">' +
+        '<div>' +
+          '<div style="font-size:13px;font-weight:500;color:var(--gray-800);">' + escapeHtml(item.name) + '</div>' +
+          '<div style="font-size:11px;color:var(--gray-400);">' +
+            item.qty + ' &times; Rs.' + item.price.toLocaleString() +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:14px;font-weight:600;color:var(--gray-900);">' +
+          'Rs.' + sub.toLocaleString() +
+        '</div>' +
+      '</div>';
+  });
+  document.getElementById('confirm-items').innerHTML = itemsHtml;
+
+  let discountAmt = 0;
+  if (discountValue > 0) {
+    discountAmt = discountType === 'percent'
+      ? subtotal * Math.min(discountValue, 100) / 100
+      : Math.min(discountValue, subtotal);
+    document.getElementById('confirm-discount-row').style.display = '';
+    document.getElementById('confirm-subtotal').textContent = subtotal.toLocaleString();
+    document.getElementById('confirm-discount').textContent = Math.round(discountAmt).toLocaleString();
+  } else {
+    document.getElementById('confirm-discount-row').style.display = 'none';
+  }
+
+  const total    = Math.max(subtotal - discountAmt, 0);
+  const totalQty = entries.reduce((s, p) => s + p[1].qty, 0);
+  document.getElementById('confirm-total').textContent     = Math.round(total).toLocaleString();
+  document.getElementById('confirm-item-count').textContent = totalQty + ' item' + (totalQty !== 1 ? 's' : '');
+
+  closeCartDrawer();
+  openModal('confirm-modal');
+}
+window.openConfirmModal = openConfirmModal;
+
+// ══════════════════════════════════════════════════════════════
+// CHECKOUT — submit sale
+// ══════════════════════════════════════════════════════════════
+async function confirmAndSell() {
+  const entries = Object.entries(cart);
+  if (!entries.length) return;
+
+  closeModal('confirm-modal');
+
+  // Disable both checkout buttons
+  const checkBtns = document.querySelectorAll('[data-action="checkout"]');
+  checkBtns.forEach(b => {
+    b.disabled = true;
+    b.innerHTML = '<span class="spinner-inline"></span> Processing...';
+  });
+
+  const payload = {
+    items: entries.map(([id, item]) => ({ product: parseInt(id), quantity: item.qty })),
+    discount_type:  discountType,
+    discount_value: discountValue,
+    notes: saleNote
+  };
+
+  try {
+    const response = await fetch('{% url "sale_create" %}', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+
+    if (data.success) {
+  // ── UPDATE STOCK ON PRODUCT TILES (before clearing cart) ──
+    Object.entries(cart).forEach(([id, item]) => {
+    const tile = document.querySelector('.product-tile[data-id="' + id + '"]');
+    if (!tile) return;
+
+    const newStock = parseInt(tile.dataset.stock) - item.qty;
+    tile.dataset.stock = newStock;
+
+    // Update the visible stock text + color state
+    const stockEl = tile.querySelector('.tile-stock');
+    if (stockEl) {
+      stockEl.classList.remove('out', 'low');
+
+      if (newStock === 0) {
+        stockEl.classList.add('out');
+        stockEl.innerHTML = '<i class="bi bi-x-circle"></i> Out of stock';
+        tile.classList.add('out-of-stock');
+      } else if (newStock <= 5) {  // assumes default low_stock_threshold of 5
+        stockEl.classList.add('low');
+        stockEl.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Low: ' + newStock + ' left';
+      } else {
+        stockEl.innerHTML = '<i class="bi bi-check-circle"></i> ' + newStock + ' in stock';
+      }
+      }
+      });
+
+      // ── Now clear cart and show receipt ──
+    lastSaleItems = Object.assign({}, cart);
+    showReceipt(data.sale_number, data.total_amount, data.subtotal, data.discount_amount);
+    cart = {};
+    saleNote = '';
+    syncNoteInputs();
+    clearDiscount();
+    document.querySelectorAll('[data-bind="note-wrap"]').forEach(w => w.style.display = 'none');
+      }else {
+      let msg = 'Could not complete sale:\n\n';
+      if (data.errors) {
+        if (typeof data.errors === 'string') msg += data.errors;
+        else {
+          Object.entries(data.errors).forEach(([_, val]) => {
+            if (Array.isArray(val)) msg += '- ' + val.join('\n- ') + '\n';
+            else if (typeof val === 'object') {
+              Object.values(val).forEach(v => msg += '- ' + (Array.isArray(v) ? v.join('\n') : String(v)) + '\n');
+            } else msg += '- ' + val + '\n';
+          });
+        }
+      }
+      alert(msg);
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Network error — please check your connection and try again.');
+  } finally {
+    checkBtns.forEach(b => {
+      b.disabled = false;
+      b.innerHTML = '<i class="bi bi-check2-circle"></i> Complete Sale';
+    });
+  }
+}
+window.confirmAndSell = confirmAndSell;
+
+// ══════════════════════════════════════════════════════════════
+// RECEIPT
+// ══════════════════════════════════════════════════════════════
+function showReceipt(saleNumber, totalAmount, subtotal, discountAmount) {
+  const now     = new Date();
+  const dateStr = now.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  const timeStr = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+  let itemsHtml = '';
+  Object.values(lastSaleItems).forEach(item => {
+    const sub = (item.qty * item.price).toLocaleString();
+    itemsHtml +=
+      '<div class="receipt-row"><span>' + escapeHtml(item.name) + '</span><span></span></div>' +
+      '<div class="receipt-row" style="padding-left:10px;color:#666;">' +
+        '<span>' + item.qty + ' x Rs.' + item.price.toLocaleString() + '</span>' +
+        '<span>Rs.' + sub + '</span>' +
+      '</div>';
+  });
+
+  const discountHtml = (discountAmount && discountAmount > 0)
+    ? '<div class="receipt-row"><span>Subtotal</span><span>Rs.' + Number(subtotal).toLocaleString() + '</span></div>' +
+      '<div class="receipt-row" style="color:green;font-weight:500;"><span>Discount</span><span>- Rs.' + Number(discountAmount).toLocaleString() + '</span></div>'
+    : '';
+
+  const subInfo = SHOP_ADDR + (SHOP_PHONE ? ' | Tel: ' + SHOP_PHONE : '');
+
+  document.getElementById('receipt-content').innerHTML =
+    '<div class="receipt-title">' + SHOP_NAME.toUpperCase() + '</div>' +
+    '<div class="receipt-sub">' + escapeHtml(subInfo) + '</div>' +
+    '<hr class="receipt-divider"/>' +
+    '<div class="receipt-row"><span>Bill No:</span><span><strong>' + saleNumber + '</strong></span></div>' +
+    '<div class="receipt-row"><span>Date:</span><span>' + dateStr + '</span></div>' +
+    '<div class="receipt-row"><span>Time:</span><span>' + timeStr + '</span></div>' +
+    '<div class="receipt-row"><span>Served by:</span><span>{{ user.username }}</span></div>' +
+    '<hr class="receipt-divider"/>' +
+    itemsHtml +
+    '<hr class="receipt-divider"/>' +
+    discountHtml +
+    '<div class="receipt-row total"><span>TOTAL</span><span>Rs. ' + Number(totalAmount).toLocaleString() + '</span></div>' +
+    '<hr class="receipt-divider"/>' +
+    '<div class="receipt-footer">Thank you! Dhanyabad! &#x1F64F;</div>';
+
+  openModal('receipt-modal');
+}
+
+function startNewSale() {
+  closeModal('receipt-modal');
+  saleNote = '';
+  syncNoteInputs();
+  lastSaleItems = {};
+  renderCart();
+}
+window.startNewSale = startNewSale;
+
+// ══════════════════════════════════════════════════════════════
+// CATEGORY TABS + SEARCH
+// ══════════════════════════════════════════════════════════════
+document.querySelectorAll('.cat-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+    filterProducts();
+  });
+});
+
+let searchTimer;
+document.getElementById('pos-search').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(filterProducts, 100);
+});
+
+const allTiles = document.querySelectorAll('.product-tile');
+function filterProducts() {
+  const q   = document.getElementById('pos-search').value.toLowerCase().trim();
+  const cat = (document.querySelector('.cat-tab.active') || {dataset:{cat:'all'}}).dataset.cat;
+  let visible = 0;
+
+  allTiles.forEach(tile => {
+    const matchCat = cat === 'all' || tile.dataset.cat === cat;
+    const matchQ   = !q || tile.dataset.name.toLowerCase().indexOf(q) !== -1;
+    const ok = matchCat && matchQ;
+    tile.style.display = ok ? '' : 'none';
+    if (ok) visible++;
+  });
+  document.getElementById('no-results').style.display = (visible === 0 && allTiles.length) ? 'flex' : 'none';
+}
+
+// Initial render
+renderCart();
+</script>
+{% endblock %}

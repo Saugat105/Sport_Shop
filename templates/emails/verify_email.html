@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; background: #F5F7FA; margin: 0; padding: 30px; }
+    .container { max-width: 560px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .header { background: linear-gradient(135deg, #1A4480 0%, #2563B0 100%); color: #fff; padding: 32px 28px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 6px 0 0; opacity: 0.85; font-size: 14px; }
+    .body { padding: 32px 28px; color: #1E293B; line-height: 1.6; font-size: 15px; }
+    .body p { margin: 0 0 16px; }
+
+    /* OTP code block — very prominent */
+    .otp-box {
+      text-align: center;
+      background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+      border: 2px dashed #F59E0B;
+      border-radius: 12px;
+      padding: 24px 16px;
+      margin: 24px 0;
+    }
+    .otp-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #92400E;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .otp-code {
+      font-family: 'Courier New', monospace;
+      font-size: 38px;
+      font-weight: 700;
+      color: #78350F;
+      letter-spacing: 0.18em;
+      padding: 6px 0;
+    }
+    .otp-expiry {
+      font-size: 12px;
+      color: #92400E;
+      margin-top: 8px;
+    }
+
+    .or-divider {
+      text-align: center;
+      color: #94A3B8;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      margin: 18px 0;
+      position: relative;
+    }
+    .or-divider::before, .or-divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 40%;
+      height: 1px;
+      background: #E2E8F0;
+    }
+    .or-divider::before { left: 0; }
+    .or-divider::after  { right: 0; }
+
+    .btn-wrap { text-align: center; margin: 0 0 22px; }
+    .btn { display: inline-block; background: #1A4480; color: #fff !important; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; }
+    .link-fallback { font-size: 11px; color: #64748B; word-break: break-all; background: #F1F5F9; padding: 10px 14px; border-radius: 6px; margin-top: 12px; }
+    .footer { padding: 18px 28px; background: #F8FAFC; color: #64748B; font-size: 12px; text-align: center; border-top: 1px solid #E2E8F0; }
+    .emoji { font-size: 36px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <div class="emoji">🏆</div>
+      <h1>Welcome to Sport Shop!</h1>
+      <p>One step away from your dashboard</p>
+    </div>
+
+    <div class="body">
+      <p>Hi <strong>{{ user.first_name|default:user.username }}</strong>,</p>
+
+      <p>Thanks for signing up to manage <strong>{{ shop_name }}</strong>! Verify your email using the code below or by clicking the button.</p>
+
+      <!-- OTP code (primary method) -->
+      <div class="otp-box">
+        <div class="otp-label">🔐 Your Verification Code</div>
+        <div class="otp-code">{{ otp }}</div>
+        <div class="otp-expiry">⏱ Code expires in 15 minutes</div>
+      </div>
+
+      <div class="or-divider">OR CLICK THE LINK</div>
+
+      <!-- Link button (secondary method) -->
+      <div class="btn-wrap">
+        <a href="{{ verify_url }}" class="btn">✅ Verify My Email</a>
+      </div>
+
+      <p style="font-size: 12px; color: #64748B; text-align: center; margin: 0;">
+        Link expires in 24 hours. Doesn't work? Copy this URL:
+      </p>
+      <div class="link-fallback">{{ verify_url }}</div>
+
+      <p style="font-size: 13px; color: #64748B; margin-top: 24px;">
+        If you didn't sign up for Sport Shop Nepal, you can safely ignore this email.
+      </p>
+    </div>
+
+    <div class="footer">
+      Sport Shop Nepal — Multi-Shop Management Platform<br>
+      Pokhara, Nepal
+    </div>
+  </div>
+</body>
+</html>

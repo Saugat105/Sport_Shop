@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign Up — Sport Shop Nepal{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Section labels & dividers ──────────────────────────── */
+  .section-divider {
+    margin: 24px 0 18px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--gray-200);
+  }
+  .section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--primary);
+    background: var(--primary-bg);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+  .section-label i { font-size: 13px; }
+
+  /* ── Two-column rows ────────────────────────────────────── */
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .row-shop {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 14px;
+  }
+
+  /* ── Password input wrapper + toggle (large touch target) ─ */
+  .input-wrap { position: relative; }
+  .pass-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background .15s;
+  }
+  .pass-toggle:hover  { background: var(--gray-100); }
+  .pass-toggle:active { background: var(--gray-200); }
+
+  .login-link {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 14px;
+    color: var(--gray-500);
+  }
+  .login-link a {
+    color: var(--primary);
+    font-weight: 500;
+    padding: 6px 8px;
+    margin: -6px -8px;
+    display: inline-block;
+  }
+
+  /* ── Mobile breakpoints ─────────────────────────────────── */
+  @media (max-width: 600px) {
+    .row-2,
+    .row-shop {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+  }
+  @media (max-width: 480px) {
+    .auth-card {
+      padding: 28px 20px !important;
+      border-radius: var(--radius-lg);
+      max-width: 100% !important;
+    }
+    .auth-logo-text h1 { font-size: 18px; }
+    .auth-title        { font-size: 19px; }
+    .auth-subtitle     { font-size: 13px; margin-bottom: 22px; }
+    .section-label     { font-size: 10px; padding: 3px 10px; }
+    .form-label        { font-size: 12px; }
+    .section-divider   { margin: 18px 0 14px; padding-top: 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page">
+  <div class="auth-card" style="max-width: 520px;">
+
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <i class="bi bi-trophy-fill"></i>
+      </div>
+      <div class="auth-logo-text">
+        <h1>SportShop</h1>
+        <p>Nepal Management System</p>
+      </div>
+    </div>
+
+    <h2 class="auth-title">Set up your shop</h2>
+    <p class="auth-subtitle">Create your account and start managing your sport shop today.</p>
+
+    {% if form.non_field_errors %}
+    <div class="alert-box danger mb-16">
+      <i class="bi bi-x-circle-fill"></i>
+      <div>{{ form.non_field_errors.0 }}</div>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'signup' %}" novalidate>
+      {% csrf_token %}
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 1 · Personal Account
+      ═══════════════════════════════════════════════════════ -->
+      <div class="section-label">
+        <i class="bi bi-person-fill"></i> Your Account
+      </div>
+
+      <!-- Username -->
+      <div class="form-group">
+        <label class="form-label" for="id_username">
+          Username <span class="req">*</span>
+        </label>
+        {{ form.username }}
+        {% if form.username.errors %}
+          <div class="form-error">{{ form.username.errors.0 }}</div>
+        {% else %}
+          <div class="form-hint">Letters, numbers and @/./+/-/_ only.</div>
+        {% endif %}
+      </div>
+
+      <!-- First / Last name -->
+      <div class="row-2">
+        <div class="form-group">
+          <label class="form-label" for="id_first_name">
+            First Name <span class="req">*</span>
+          </label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}
+            <div class="form-error">{{ form.first_name.errors.0 }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="id_last_name">Last Name</label>
+          {{ form.last_name }}
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="form-group">
+        <label class="form-label" for="id_email">
+          Email <span class="req">*</span>
+        </label>
+        {{ form.email }}
+        {% if form.email.errors %}
+          <div class="form-error">{{ form.email.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 2 · Shop Information
+      ═══════════════════════════════════════════════════════ -->
+      <div class="section-divider">
+        <div class="section-label" style="background:var(--success-bg);color:var(--success-text);">
+          <i class="bi bi-shop-window"></i> Your Shop
+        </div>
+
+        <div class="alert-box info" style="margin-bottom:14px;font-size:13px;">
+          <i class="bi bi-info-circle-fill"></i>
+          <div>
+            You'll be the <strong>owner</strong> of this shop. You can add staff members later from the Team page.
+          </div>
+        </div>
+
+        <!-- Shop Name -->
+        <div class="form-group">
+          <label class="form-label" for="id_shop_name">
+            Shop Name <span class="req">*</span>
+          </label>
+          {{ form.shop_name }}
+          {% if form.shop_name.errors %}
+            <div class="form-error">{{ form.shop_name.errors.0 }}</div>
+          {% else %}
+            <div class="form-hint">This will appear at the top of your dashboard and on receipts.</div>
+          {% endif %}
+        </div>
+
+        <!-- Address & Phone -->
+        <div class="row-shop">
+          <div class="form-group">
+            <label class="form-label" for="id_shop_address">Shop Address</label>
+            {{ form.shop_address }}
+            {% if form.shop_address.errors %}
+              <div class="form-error">{{ form.shop_address.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="id_shop_phone">Shop Phone</label>
+            {{ form.shop_phone }}
+            {% if form.shop_phone.errors %}
+              <div class="form-error">{{ form.shop_phone.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 3 · Security
+      ═══════════════════════════════════════════════════════ -->
+      <div class="section-divider">
+        <div class="section-label" style="background:var(--warning-bg);color:var(--warning-text);">
+          <i class="bi bi-shield-lock-fill"></i> Security
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label class="form-label" for="id_password1">
+            Password <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            {{ form.password1 }}
+            <button type="button" class="pass-toggle"
+                    onclick="togglePassword('id_password1', 'eye1')"
+                    aria-label="Toggle password visibility">
+              <i class="bi bi-eye" id="eye1"></i>
+            </button>
+          </div>
+          {% if form.password1.errors %}
+            <div class="form-error">{{ form.password1.errors.0 }}</div>
+          {% else %}
+            <div class="form-hint">At least 8 characters, not too common.</div>
+          {% endif %}
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="form-group">
+          <label class="form-label" for="id_password2">
+            Confirm Password <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            {{ form.password2 }}
+            <button type="button" class="pass-toggle"
+                    onclick="togglePassword('id_password2', 'eye2')"
+                    aria-label="Toggle password visibility">
+              <i class="bi bi-eye" id="eye2"></i>
+            </button>
+          </div>
+          {% if form.password2.errors %}
+            <div class="form-error">{{ form.password2.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+
+      <!-- Submit -->
+      <button type="submit" class="btn btn-primary"
+              style="width:100%;justify-content:center;padding:14px;font-size:15px;margin-top:8px;">
+        <i class="bi bi-rocket-takeoff-fill"></i>
+        Create Account &amp; Open Shop
+      </button>
+
+      <div class="login-link">
+        Already have an account?
+        <a href="{% url 'login' %}">Sign in</a>
+      </div>
+    </form>
+
+    <div class="auth-footer">
+      <i class="bi bi-shield-lock"></i>
+      Sport Shop Nepal — Multi-Shop Platform
+    </div>
+  </div>
+</div>
+
+<script>
+  // Add mobile-friendly attributes to fields rendered by Django after page load
+  (function () {
+    const username  = document.getElementById('id_username');
+    const firstName = document.getElementById('id_first_name');
+    const lastName  = document.getElementById('id_last_name');
+    const email     = document.getElementById('id_email');
+    const shopName  = document.getElementById('id_shop_name');
+    const shopPhone = document.getElementById('id_shop_phone');
+
+    if (username)  { username.autocapitalize  = 'none'; username.autocorrect = 'off'; }
+    if (firstName) { firstName.autocapitalize = 'words'; }
+    if (lastName)  { lastName.autocapitalize  = 'words'; }
+    if (email)     { email.inputMode          = 'email'; email.autocapitalize = 'none'; }
+    if (shopName)  { shopName.autocapitalize  = 'words'; }
+    if (shopPhone) { shopPhone.inputMode      = 'tel'; }
+  })();
+
+  function togglePassword(inputId, eyeId) {
+    const input = document.getElementById(inputId);
+    const eye   = document.getElementById(eyeId);
+    if (input.type === 'password') {
+      input.type = 'text';
+      eye.className = 'bi bi-eye-slash';
+    } else {
+      input.type = 'password';
+      eye.className = 'bi bi-eye';
+    }
+  }
+</script>
+{% endblock %}

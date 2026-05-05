@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sale #{{ sale.sale_number }} — {{ user.profile.shop.name }}{% endblock %}
+{% block page_title %}Sale Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Receipt card ───────────────────────────────────────── */
+  .receipt-card {
+    max-width: 680px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+
+  /* Shop header banner */
+  .receipt-shop-header {
+    background: var(--primary-dark);
+    color: #fff;
+    padding: 26px 28px;
+    text-align: center;
+  }
+  .receipt-shop-emoji { font-size: 32px; margin-bottom: 6px; }
+  .receipt-shop-name {
+    font-family: var(--font-display);
+    font-size: 24px;
+    margin-bottom: 4px;
+    line-height: 1.15;
+  }
+  .receipt-shop-sub {
+    font-size: 13px;
+    opacity: 0.78;
+  }
+
+  /* Meta grid */
+  .receipt-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--gray-200);
+    border-left: 1px solid var(--gray-200);
+    border-right: 1px solid var(--gray-200);
+  }
+  .receipt-meta-cell {
+    background: var(--gray-50);
+    padding: 14px 18px;
+  }
+  .receipt-meta-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--gray-500);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+  .receipt-meta-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-800);
+    word-break: break-word;
+  }
+
+  /* Items */
+  .receipt-items {
+    border: 1px solid var(--gray-200);
+    border-top: none;
+    border-bottom: none;
+  }
+
+  /* Mobile item cards (replace desktop table on phone) */
+  .item-cards { display: none; padding: 4px; background: #fff; }
+  .item-card {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .item-card:last-child { border-bottom: none; }
+  .item-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .item-card-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-900);
+    line-height: 1.3;
+  }
+  .item-card-cat {
+    font-size: 11px;
+    color: var(--gray-400);
+    margin-top: 1px;
+  }
+  .item-card-sub {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-900);
+    flex-shrink: 0;
+  }
+  .item-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--gray-500);
+  }
+
+  /* Summary rows */
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 22px;
+    border-top: 1px solid var(--gray-100);
+    font-size: 14px;
+  }
+  .summary-row.subtotal { color: var(--gray-600); }
+  .summary-row.discount { color: var(--success); background: var(--success-bg); }
+  .summary-row.total-row {
+    background: var(--primary-dark);
+    color: #fff;
+    padding: 16px 22px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    font-family: var(--font-display);
+  }
+  .summary-row.total-row .label { font-size: 16px; font-weight: 500; }
+  .summary-row.total-row .value { font-size: 26px; }
+
+  /* ── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    /* Hide desktop table, show mobile cards */
+    .receipt-items table { display: none; }
+    .item-cards          { display: block; }
+
+    /* Tighter shop header */
+    .receipt-shop-header { padding: 22px 20px; }
+    .receipt-shop-name   { font-size: 20px; }
+    .receipt-shop-sub    { font-size: 12px; }
+
+    /* Single column meta on tiny screens */
+    .receipt-meta-cell { padding: 12px 16px; }
+    .receipt-meta-value { font-size: 13px; }
+
+    /* Total row */
+    .summary-row.total-row { padding: 14px 18px; }
+    .summary-row.total-row .value { font-size: 22px; }
+    .summary-row { padding: 9px 18px; font-size: 13px; }
+
+    /* Page header buttons stack on tiny screens */
+    .page-header-right { width: 100%; flex-wrap: wrap; }
+    .page-header-right .btn { flex: 1; justify-content: center; }
+  }
+
+  @media (max-width: 380px) {
+    /* On very small phones, stack meta vertically */
+    .receipt-meta { grid-template-columns: 1fr; }
+  }
+
+  /* ── Print styles ───────────────────────────────────────── */
+  @media print {
+    .sidebar,
+    .sidebar-overlay,
+    .topbar,
+    .no-print { display: none !important; }
+    .main-content { margin-left: 0 !important; }
+    .page-body { padding: 0 !important; }
+    .receipt-card {
+      box-shadow: none !important;
+      border: none !important;
+      max-width: 100% !important;
+    }
+    /* Force desktop table on print */
+    .receipt-items table { display: table !important; }
+    .item-cards          { display: none !important; }
+    .receipt-shop-header { background: #1A4480 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .summary-row.total-row { background: #1A4480 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .summary-row.discount { background: #DCFCE7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ─────────────────────────────────────────── -->
+<div class="page-header no-print">
+  <div class="page-header-left">
+    <h1>Sale #{{ sale.sale_number }}</h1>
+    <p>Transaction details and receipt</p>
+  </div>
+  <div class="page-header-right">
+    <button class="btn btn-outline" onclick="window.print()">
+      <i class="bi bi-printer-fill"></i> Print
+    </button>
+    <a href="{% url 'sales_list' %}" class="btn btn-ghost">
+      <i class="bi bi-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<!-- ── Receipt Card ────────────────────────────────────────── -->
+<div class="receipt-card card">
+
+  <!-- Shop Header (uses dynamic shop info) -->
+  <div class="receipt-shop-header">
+    <div class="receipt-shop-emoji">🏆</div>
+    <div class="receipt-shop-name">{{ user.profile.shop.name }}</div>
+    <div class="receipt-shop-sub">
+      {% if user.profile.shop.address %}{{ user.profile.shop.address }}{% else %}Nepal{% endif %}
+      {% if user.profile.shop.phone %} &nbsp;|&nbsp; Tel: {{ user.profile.shop.phone }}{% endif %}
+    </div>
+  </div>
+
+  <!-- Bill Meta -->
+  <div class="receipt-meta">
+    <div class="receipt-meta-cell">
+      <div class="receipt-meta-label">Bill Number</div>
+      <div class="receipt-meta-value" style="color:var(--primary);">#{{ sale.sale_number }}</div>
+    </div>
+    <div class="receipt-meta-cell">
+      <div class="receipt-meta-label">Date &amp; Time</div>
+      <div class="receipt-meta-value">{{ sale.created_at|date:"M d, Y — g:i A" }}</div>
+    </div>
+    <div class="receipt-meta-cell">
+      <div class="receipt-meta-label">Served By</div>
+      <div class="receipt-meta-value">{{ sale.created_by.username }}</div>
+    </div>
+    <div class="receipt-meta-cell">
+      <div class="receipt-meta-label">Items Count</div>
+      <div class="receipt-meta-value">{{ sale.items.count }} item{{ sale.items.count|pluralize }}</div>
+    </div>
+    {% if sale.notes %}
+    <div class="receipt-meta-cell" style="grid-column:1/-1;">
+      <div class="receipt-meta-label">Notes</div>
+      <div class="receipt-meta-value" style="font-weight:400;color:var(--gray-600);">{{ sale.notes }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       LINE ITEMS — Desktop table + Mobile cards
+  ═══════════════════════════════════════════════════════ -->
+  <div class="receipt-items">
+
+    <!-- Desktop table (hidden on small screens) -->
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product</th>
+          <th style="text-align:center;">Qty</th>
+          <th style="text-align:right;">Unit Price</th>
+          <th style="text-align:right;">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in sale.items.all %}
+        <tr>
+          <td style="color:var(--gray-400);">{{ forloop.counter }}</td>
+          <td>
+            <div style="font-weight:500;">{{ item.product.name }}</div>
+            <div style="font-size:12px;color:var(--gray-400);">{{ item.product.category.name }}</div>
+          </td>
+          <td style="text-align:center;">
+            <span class="badge-pill badge-neutral">×{{ item.quantity }}</span>
+          </td>
+          <td style="text-align:right;color:var(--gray-600);">
+            Rs. {{ item.unit_price|floatformat:0 }}
+          </td>
+          <td style="text-align:right;font-weight:600;color:var(--gray-900);">
+            Rs. {{ item.subtotal|floatformat:0 }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Mobile cards (shown on small screens) -->
+    <div class="item-cards">
+      {% for item in sale.items.all %}
+      <div class="item-card">
+        <div class="item-card-top">
+          <div style="flex:1;min-width:0;">
+            <div class="item-card-name">{{ item.product.name }}</div>
+            <div class="item-card-cat">{{ item.product.category.name }}</div>
+          </div>
+          <div class="item-card-sub">Rs. {{ item.subtotal|floatformat:0 }}</div>
+        </div>
+        <div class="item-card-bottom">
+          <span>{{ item.quantity }} × Rs. {{ item.unit_price|floatformat:0 }}</span>
+          <span class="badge-pill badge-neutral" style="font-size:10px;padding:2px 8px;">
+            ×{{ item.quantity }}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+
+  <!-- Totals -->
+  {% if sale.discount_amount > 0 %}
+  <div class="summary-row subtotal">
+    <span>Subtotal</span>
+    <span>Rs. {{ sale.subtotal|floatformat:0 }}</span>
+  </div>
+  <div class="summary-row discount">
+    <span>
+      <i class="bi bi-tag-fill"></i>
+      Discount
+      {% if sale.discount_type == 'percent' %}
+        ({{ sale.discount_value|floatformat:0 }}%)
+      {% else %}
+        (Fixed amount)
+      {% endif %}
+    </span>
+    <span>− Rs. {{ sale.discount_amount|floatformat:0 }}</span>
+  </div>
+  {% endif %}
+
+  <!-- Grand Total -->
+  <div class="summary-row total-row">
+    <span class="label">Total Amount</span>
+    <span class="value">Rs. {{ sale.total_amount|floatformat:0 }}</span>
+  </div>
+
+</div>
+
+<div style="text-align:center;margin-top:20px;color:var(--gray-400);font-size:13px;" class="no-print">
+  <i class="bi bi-heart-fill" style="color:#F43F5E;"></i>
+  {{ user.profile.shop.name }}{% if user.profile.shop.address %} — {{ user.profile.shop.address }}{% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,549 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Reports — {{ user.profile.shop.name }}{% endblock %}
+{% block page_title %}Reports{% endblock %}
+
+{% block extra_css %}
+<style>
+  .reports-stats { grid-template-columns: repeat(3, 1fr); margin-bottom: 18px; }
+
+  /* Profit hero — owner only */
+  .profit-hero {
+    background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+    border: 1px solid #F59E0B;
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 20px;
+    align-items: center;
+  }
+  .profit-hero-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: rgba(245, 158, 11, 0.2);
+    display: flex; align-items: center; justify-content: center;
+    color: #92400E;
+    font-size: 30px;
+  }
+  .profit-hero-content h2 {
+    font-family: var(--font-display);
+    font-size: 28px;
+    color: #78350F;
+    margin: 0 0 4px;
+    line-height: 1.1;
+  }
+  .profit-hero-content .sub {
+    font-size: 13px;
+    color: #92400E;
+  }
+  .profit-hero-margin {
+    text-align: right;
+  }
+  .profit-hero-margin .pct {
+    font-family: var(--font-display);
+    font-size: 32px;
+    color: #78350F;
+    line-height: 1;
+  }
+  .profit-hero-margin .lbl {
+    font-size: 11px;
+    color: #92400E;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-top: 2px;
+  }
+
+  /* Profit stat cards */
+  .profit-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .profit-card {
+    background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+    border-left: 4px solid var(--success);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .profit-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--success);
+    margin-bottom: 4px;
+  }
+  .profit-card .value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--success-text);
+    font-family: var(--font-display);
+  }
+  .profit-card .sub {
+    font-size: 12px;
+    color: var(--success);
+    margin-top: 2px;
+  }
+
+  /* Reports row layout */
+  .reports-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  /* Top products list */
+  .top-list { display: none; padding: 4px 6px; }
+  .top-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .top-row:last-child { border-bottom: none; }
+  .top-rank {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--gray-100);
+    color: var(--gray-500);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 13px;
+    flex-shrink: 0;
+  }
+  .top-rank.gold   { background: #FEF3C7; color: #92400E; font-size: 16px; }
+  .top-rank.silver { background: #E5E7EB; color: #4B5563; font-size: 16px; }
+  .top-rank.bronze { background: #FED7AA; color: #9A3412; font-size: 16px; }
+  .top-info { flex: 1; min-width: 0; }
+  .top-name {
+    font-size: 14px; font-weight: 500;
+    color: var(--gray-900);
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+  .top-meta { font-size: 12px; color: var(--gray-500); }
+  .top-rev-profit {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .top-revenue { font-size: 13px; font-weight: 600; color: var(--gray-700); }
+  .top-profit  { font-size: 12px; font-weight: 500; color: var(--success); margin-top: 1px; }
+
+  /* Sale list mobile */
+  .sale-list-mobile { display: none; padding: 4px 6px; }
+  .sale-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--gray-100);
+    text-decoration: none; color: inherit;
+  }
+  .sale-row:last-child { border-bottom: none; }
+  .sale-row-info { flex: 1; min-width: 0; }
+  .sale-row-bill {
+    font-size: 14px; font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 1px;
+  }
+  .sale-row-meta { font-size: 11px; color: var(--gray-500); }
+  .sale-row-amt {
+    font-size: 14px; font-weight: 700;
+    color: var(--gray-900);
+    font-family: var(--font-display);
+    flex-shrink: 0;
+  }
+
+  /* ── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 1024px) {
+    .reports-row { grid-template-columns: 1fr; }
+    .profit-stats { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    .reports-stats { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .reports-stats .stat-card:nth-child(3) { grid-column: 1 / -1; }
+
+    .profit-hero {
+      grid-template-columns: 1fr;
+      text-align: center;
+      gap: 12px;
+      padding: 20px;
+    }
+    .profit-hero-icon { margin: 0 auto; }
+    .profit-hero-margin { text-align: center; }
+
+    .profit-stats { grid-template-columns: 1fr; }
+
+    .top-table-wrap, .sales-table-wrap { display: none; }
+    .top-list, .sale-list-mobile       { display: block; }
+  }
+
+  @media (max-width: 480px) {
+    .reports-stats { grid-template-columns: 1fr; }
+    .reports-stats .stat-card:nth-child(3) { grid-column: auto; }
+    .profit-hero-content h2 { font-size: 24px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ─────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Reports</h1>
+    <p>Sales analytics for {{ user.profile.shop.name }} — {{ month_name }}</p>
+  </div>
+  <div class="page-header-right">
+    <a href="{% url 'sales_list' %}" class="btn btn-outline">
+      <i class="bi bi-receipt-cutoff"></i> All Sales
+    </a>
+    <button onclick="window.print()" class="btn btn-ghost no-print">
+      <i class="bi bi-printer-fill"></i> Print
+    </button>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+   ALL-TIME PROFIT HERO  — Owner only
+═════════════════════════════════════════ #} -->
+{% if is_owner %}
+<div class="profit-hero">
+  <div class="profit-hero-icon">
+    <i class="bi bi-trophy-fill"></i>
+  </div>
+  <div class="profit-hero-content">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#92400E;font-weight:600;margin-bottom:6px;">
+      <i class="bi bi-stars"></i> All-Time Profit
+    </div>
+    <h2>Rs. {{ total_profit|floatformat:0 }}</h2>
+    <div class="sub">
+      from <strong>Rs. {{ total_revenue|floatformat:0 }}</strong> total revenue · since you opened the shop
+    </div>
+  </div>
+  <div class="profit-hero-margin">
+    {% if total_revenue %}
+      <div class="pct">
+        {% widthratio total_profit total_revenue 100 %}%
+      </div>
+      <div class="lbl">Margin</div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- ── Profit Breakdown (this month) ─────────────────────── -->
+<div class="profit-stats">
+  <div class="profit-card">
+    <div class="label"><i class="bi bi-calendar-month"></i> This Month's Profit</div>
+    <div class="value">Rs. {{ monthly_profit|floatformat:0 }}</div>
+    <div class="sub">{{ month_name }}</div>
+  </div>
+
+  <div class="profit-card">
+    <div class="label"><i class="bi bi-receipt"></i> Monthly Revenue</div>
+    <div class="value">Rs. {{ monthly_total|floatformat:0 }}</div>
+    <div class="sub">{{ monthly_count }} sale{{ monthly_count|pluralize }} this month</div>
+  </div>
+
+  <div class="profit-card" style="background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 100%);border-left-color:var(--primary);">
+    <div class="label" style="color:var(--primary);"><i class="bi bi-percent"></i> Monthly Margin</div>
+    <div class="value" style="color:var(--primary-dark);">
+      {% if monthly_total %}
+        {% widthratio monthly_profit monthly_total 100 %}%
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="sub" style="color:var(--primary);">profit ÷ revenue</div>
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ── Standard Stats (all admin users) ───────────────────── -->
+<div class="stat-grid reports-stats">
+  <div class="stat-card accent-success">
+    <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+    <div class="stat-label">Monthly Revenue</div>
+    <div class="stat-value" style="font-size:22px;">Rs. {{ monthly_total|floatformat:0 }}</div>
+    <div class="stat-sub">{{ monthly_count }} transaction{{ monthly_count|pluralize }}</div>
+  </div>
+  <div class="stat-card accent-info">
+    <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+    <div class="stat-label">Avg. Per Transaction</div>
+    <div class="stat-value" style="font-size:22px;">
+      Rs. {% if monthly_count %}{% widthratio monthly_total monthly_count 1 %}{% else %}0{% endif %}
+    </div>
+    <div class="stat-sub">{{ month_name }}</div>
+  </div>
+  <div class="stat-card accent-warning">
+    <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+    <div class="stat-label">Low Stock Items</div>
+    <div class="stat-value">{{ low_stock_count }}</div>
+    <div class="stat-sub">need restocking</div>
+  </div>
+</div>
+
+
+<!-- ── Charts Row ─────────────────────────────────────────── -->
+<div class="reports-row">
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">
+        <i class="bi bi-bar-chart-fill"></i>
+        Weekly Breakdown — {{ month_name }}
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="bar-chart-wrap" id="weekly-chart" style="height:140px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">
+        <i class="bi bi-star-fill" style="color:#F59E0B;"></i>
+        Top Selling Products
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="top-table-wrap" style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Units</th>
+            <th style="text-align:right;">Revenue</th>
+            {% if is_owner %}<th style="text-align:right;color:var(--success);">Profit</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% if is_owner %}
+            {% for item in top_with_profit %}
+            <tr>
+              <td>
+                {% if forloop.counter == 1 %}🥇
+                {% elif forloop.counter == 2 %}🥈
+                {% elif forloop.counter == 3 %}🥉
+                {% else %}<span style="color:var(--gray-400);">{{ forloop.counter }}</span>
+                {% endif %}
+              </td>
+              <td style="font-weight:500;color:var(--gray-800);">{{ item.product__name }}</td>
+              <td><span class="badge-pill badge-neutral">{{ item.total_qty }}</span></td>
+              <td style="text-align:right;font-weight:600;color:var(--gray-700);">
+                Rs. {{ item.total_rev|floatformat:0 }}
+              </td>
+              <td style="text-align:right;font-weight:600;color:var(--success);">
+                Rs. {{ item.total_profit|floatformat:0 }}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5">
+                <div style="text-align:center;padding:32px;color:var(--gray-400);font-size:14px;">
+                  <i class="bi bi-bar-chart" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+                  No sales data yet
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            {% for item in top_products %}
+            <tr>
+              <td>
+                {% if forloop.counter == 1 %}🥇
+                {% elif forloop.counter == 2 %}🥈
+                {% elif forloop.counter == 3 %}🥉
+                {% else %}<span style="color:var(--gray-400);">{{ forloop.counter }}</span>
+                {% endif %}
+              </td>
+              <td style="font-weight:500;color:var(--gray-800);">{{ item.product__name }}</td>
+              <td><span class="badge-pill badge-neutral">{{ item.total_qty }}</span></td>
+              <td style="text-align:right;font-weight:600;color:var(--success);">
+                Rs. {{ item.total_rev|floatformat:0 }}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4">
+                <div style="text-align:center;padding:32px;color:var(--gray-400);font-size:14px;">
+                  <i class="bi bi-bar-chart" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+                  No sales data yet
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile list -->
+    <div class="top-list">
+      {% if is_owner %}
+        {% for item in top_with_profit %}
+        <div class="top-row">
+          <div class="top-rank
+            {% if forloop.counter == 1 %}gold{% endif %}
+            {% if forloop.counter == 2 %}silver{% endif %}
+            {% if forloop.counter == 3 %}bronze{% endif %}">
+            {% if forloop.counter == 1 %}🥇
+            {% elif forloop.counter == 2 %}🥈
+            {% elif forloop.counter == 3 %}🥉
+            {% else %}{{ forloop.counter }}{% endif %}
+          </div>
+          <div class="top-info">
+            <div class="top-name">{{ item.product__name }}</div>
+            <div class="top-meta">{{ item.total_qty }} unit{{ item.total_qty|pluralize }} sold</div>
+          </div>
+          <div class="top-rev-profit">
+            <div class="top-revenue">Rs. {{ item.total_rev|floatformat:0 }}</div>
+            <div class="top-profit">+Rs. {{ item.total_profit|floatformat:0 }} profit</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        {% for item in top_products %}
+        <div class="top-row">
+          <div class="top-rank
+            {% if forloop.counter == 1 %}gold{% endif %}
+            {% if forloop.counter == 2 %}silver{% endif %}
+            {% if forloop.counter == 3 %}bronze{% endif %}">
+            {% if forloop.counter == 1 %}🥇
+            {% elif forloop.counter == 2 %}🥈
+            {% elif forloop.counter == 3 %}🥉
+            {% else %}{{ forloop.counter }}{% endif %}
+          </div>
+          <div class="top-info">
+            <div class="top-name">{{ item.product__name }}</div>
+            <div class="top-meta">{{ item.total_qty }} unit{{ item.total_qty|pluralize }} sold</div>
+          </div>
+          <div class="top-rev-profit">
+            <div class="top-revenue" style="color:var(--success);">Rs. {{ item.total_rev|floatformat:0 }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ── All sales this month ───────────────────────────────── -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-header-title">
+      <i class="bi bi-receipt-cutoff"></i>
+      All Sales — {{ month_name }}
+    </div>
+    <a href="{% url 'sales_list' %}" class="btn btn-ghost btn-sm">
+      View Full History <i class="bi bi-arrow-right"></i>
+    </a>
+  </div>
+
+  <div class="sales-table-wrap" style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Bill No.</th>
+          <th>Date</th>
+          <th>Items</th>
+          <th>Served By</th>
+          <th style="text-align:right;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sale in monthly_sales %}
+        <tr>
+          <td>
+            <a href="{% url 'sale_detail' sale.pk %}" style="color:var(--primary);font-weight:600;">
+              #{{ sale.sale_number }}
+            </a>
+          </td>
+          <td style="font-size:13px;color:var(--gray-500);">{{ sale.created_at|date:"M d, g:i A" }}</td>
+          <td><span class="badge-pill badge-neutral">{{ sale.items.count }} item{{ sale.items.count|pluralize }}</span></td>
+          <td style="color:var(--gray-600);">{{ sale.created_by.username }}</td>
+          <td style="text-align:right;font-weight:700;color:var(--gray-900);">
+            Rs. {{ sale.total_amount|floatformat:0 }}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" style="text-align:center;padding:32px;color:var(--gray-400);">
+            No sales this month yet. <a href="{% url 'sale_create' %}" style="color:var(--primary);">Create one →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sale-list-mobile">
+    {% for sale in monthly_sales %}
+    <a href="{% url 'sale_detail' sale.pk %}" class="sale-row">
+      <div class="sale-row-info">
+        <div class="sale-row-bill">#{{ sale.sale_number }}</div>
+        <div class="sale-row-meta">
+          {{ sale.created_at|date:"M d, g:i A" }}
+          · {{ sale.items.count }} item{{ sale.items.count|pluralize }}
+          · {{ sale.created_by.username }}
+        </div>
+      </div>
+      <div class="sale-row-amt">Rs. {{ sale.total_amount|floatformat:0 }}</div>
+    </a>
+    {% empty %}
+    <div style="text-align:center;padding:32px;color:var(--gray-400);">
+      No sales this month yet.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ weekly_data|json_script:"weekly-data" }}
+{% if is_owner %}{{ weekly_profit|json_script:"weekly-profit-data" }}{% endif %}
+<script>
+(function() {
+  'use strict';
+  const dataEl = document.getElementById('weekly-data');
+  const chart  = document.getElementById('weekly-chart');
+  if (!dataEl || !chart) return;
+
+  const data = JSON.parse(dataEl.textContent || '[]');
+  if (!data.length) return;
+
+  // For owners: also overlay profit data
+  const profitDataEl = document.getElementById('weekly-profit-data');
+  const profitData   = profitDataEl ? JSON.parse(profitDataEl.textContent || '[]') : null;
+
+  const maxVal = Math.max.apply(null, data.map(d => d.total).concat(1));
+
+  chart.innerHTML = data.map(function(d, i) {
+    const pct  = Math.max((d.total / maxVal) * 100, 4);
+    const text = d.total > 0 ? 'Rs.' + Number(d.total).toLocaleString() : '';
+    const profitText = profitData && profitData[i] && profitData[i].profit > 0
+      ? '<div style="font-size:9px;color:#16A34A;font-weight:600;margin-top:2px;">+' + Math.round(profitData[i].profit).toLocaleString() + '</div>'
+      : '';
+    return (
+      '<div class="bar-col">' +
+        '<div class="bar-val" style="font-size:10px;color:var(--gray-500);">' + text + profitText + '</div>' +
+        '<div class="bar-fill highlight" style="height:' + pct + '%"></div>' +
+        '<div class="bar-label">' + d.week + '</div>' +
+      '</div>'
+    );
+  }).join('');
+})();
+</script>
+{% endblock %}

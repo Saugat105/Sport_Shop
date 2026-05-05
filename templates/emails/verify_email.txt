@@ -1,0 +1,19 @@
+Hi {{ user.first_name|default:user.username }},
+
+Welcome to Sport Shop Nepal! 🏆
+
+You signed up for "{{ shop_name }}". To activate your account, please verify your email using one of these two methods:
+
+╔════════════════════════════════════════════════╗
+║  YOUR VERIFICATION CODE:  {{ otp }}             ║
+╚════════════════════════════════════════════════╝
+
+OPTION 1 — Enter the code on the verification page (expires in 15 minutes)
+
+OPTION 2 — Click this link (expires in 24 hours):
+{{ verify_url }}
+
+If you didn't sign up for Sport Shop Nepal, you can safely ignore this email — no account will be activated.
+
+Cheers,
+The Sport Shop Nepal Team

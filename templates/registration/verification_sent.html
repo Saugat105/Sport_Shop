@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Verify Your Email — Sport Shop{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* OTP input boxes — 6 individual digits */
+  .otp-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 20px 0 8px;
+  }
+  .otp-digit {
+    width: 44px;
+    height: 54px;
+    border: 2px solid var(--gray-300);
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    color: var(--gray-900);
+    font-family: var(--font-display);
+    background: #fff;
+    transition: all .15s;
+  }
+  .otp-digit:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(26, 68, 128, 0.12);
+    transform: scale(1.05);
+  }
+  .otp-digit.filled {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+  }
+
+  .countdown {
+    text-align: center;
+    font-size: 12px;
+    color: var(--gray-500);
+    margin: 8px 0 16px;
+  }
+  .countdown strong { color: var(--gray-700); }
+
+  @media (max-width: 420px) {
+    .otp-digit { width: 38px; height: 48px; font-size: 18px; gap: 6px; }
+    .otp-inputs { gap: 6px; }
+  }
+</style>
+{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page">
+  <div class="auth-card" style="max-width: 460px;">
+
+    <div style="width:80px;height:80px;background:var(--primary-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+      <i class="bi bi-envelope-arrow-up-fill" style="font-size:34px;color:var(--primary);"></i>
+    </div>
+
+    <h2 class="auth-title" style="text-align:center;">Verify your email</h2>
+    <p class="auth-subtitle" style="text-align:center;">
+      {% if email %}
+        Enter the 6-digit code we sent to<br>
+        <strong style="color:var(--gray-700);">{{ email }}</strong>
+      {% else %}
+        Enter the 6-digit code we sent to your email
+      {% endif %}
+    </p>
+
+    {% if messages %}
+      {% for message in messages %}
+      <div class="alert-box {% if message.tags == 'error' or message.tags == 'danger' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} mb-16">
+        <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif message.tags == 'error' or message.tags == 'danger' %}x-circle-fill{% else %}info-circle-fill{% endif %}"></i>
+        <div style="font-size:13px;">{{ message }}</div>
+      </div>
+      {% endfor %}
+    {% endif %}
+
+    <!-- ── OTP Verification Form ──────────────────────────── -->
+    <form method="post" action="{% url 'verify_otp' %}" id="otp-form">
+      {% csrf_token %}
+
+      <!-- Hidden email field (we know it from session) -->
+      {% if email %}
+      <input type="hidden" name="email" value="{{ email }}" />
+      {% else %}
+      <div class="form-group">
+        <label class="form-label" for="otp-email">Email</label>
+        <input
+          type="email"
+          id="otp-email"
+          name="email"
+          class="form-control"
+          placeholder="your@email.com"
+          required
+          inputmode="email"
+          autocapitalize="none"
+        />
+      </div>
+      {% endif %}
+
+      <!-- 6 OTP boxes -->
+      <label class="form-label" style="text-align:center;display:block;">
+        Verification Code
+      </label>
+      <div class="otp-inputs">
+        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-digit" autofocus />
+        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-digit" />
+      </div>
+
+      <!-- Hidden combined OTP value (filled by JS) -->
+      <input type="hidden" name="otp" id="otp-combined" />
+
+      <div class="countdown" id="countdown">
+        Code expires in <strong id="timer">15:00</strong>
+      </div>
+
+      <button type="submit" class="btn btn-primary"
+              style="width:100%;justify-content:center;padding:13px;font-size:15px;">
+        <i class="bi bi-check2-circle"></i> Verify Email
+      </button>
+    </form>
+
+    <!-- ── Resend section ─────────────────────────────────── -->
+    <div style="text-align:center;margin-top:18px;font-size:13px;color:var(--gray-500);">
+      Didn't receive the code?
+    </div>
+    <form method="post" action="{% url 'resend_verification' %}" style="margin-top: 8px;">
+      {% csrf_token %}
+      <input type="hidden" name="email" value="{{ email }}" />
+      <button type="submit" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:13px;">
+        <i class="bi bi-arrow-clockwise"></i> Resend Code
+      </button>
+    </form>
+
+    <div style="text-align:center;margin-top:14px;">
+      <a href="{% url 'login' %}" style="color:var(--gray-500);font-size:13px;">
+        ← Back to Login
+      </a>
+    </div>
+
+    <div class="auth-footer">
+      <i class="bi bi-shield-lock"></i> Sport Shop Nepal
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  'use strict';
+
+  const inputs    = document.querySelectorAll('.otp-digit');
+  const combined  = document.getElementById('otp-combined');
+  const form      = document.getElementById('otp-form');
+
+  // ── Auto-focus next input as user types ─────────────────
+  inputs.forEach(function(input, index) {
+
+    // On typing
+    input.addEventListener('input', function(e) {
+      // Only allow digits
+      this.value = this.value.replace(/[^0-9]/g, '');
+
+      if (this.value) {
+        this.classList.add('filled');
+        // Move to next box
+        if (index < inputs.length - 1) {
+          inputs[index + 1].focus();
+        }
+      } else {
+        this.classList.remove('filled');
+      }
+
+      updateCombined();
+
+      // Auto-submit when all 6 digits filled
+      if (combined.value.length === 6) {
+        setTimeout(() => form.submit(), 200);
+      }
+    });
+
+    // Backspace moves to previous box
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && !this.value && index > 0) {
+        inputs[index - 1].focus();
+      } else if (e.key === 'ArrowLeft' && index > 0) {
+        inputs[index - 1].focus();
+      } else if (e.key === 'ArrowRight' && index < inputs.length - 1) {
+        inputs[index + 1].focus();
+      }
+    });
+
+    // Paste full 6-digit code at once
+    input.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const pasted = (e.clipboardData || window.clipboardData).getData('text');
+      const digits = pasted.replace(/[^0-9]/g, '').slice(0, 6);
+      digits.split('').forEach(function(digit, i) {
+        if (inputs[i]) {
+          inputs[i].value = digit;
+          inputs[i].classList.add('filled');
+        }
+      });
+      updateCombined();
+      if (digits.length === 6) {
+        setTimeout(() => form.submit(), 200);
+      } else if (digits.length < 6) {
+        inputs[digits.length].focus();
+      }
+    });
+  });
+
+  function updateCombined() {
+    combined.value = Array.from(inputs).map(i => i.value).join('');
+  }
+
+  // ── Countdown timer (15 minutes) ────────────────────────
+  let secondsLeft = 15 * 60;
+  const timerEl = document.getElementById('timer');
+
+  function updateTimer() {
+    if (secondsLeft <= 0) {
+      timerEl.textContent = 'Expired';
+      timerEl.style.color = 'var(--danger)';
+      document.getElementById('countdown').innerHTML =
+        '<strong style="color:var(--danger);">⏱ Code expired</strong> — please request a new one';
+      inputs.forEach(i => i.disabled = true);
+      return;
+    }
+    const m = Math.floor(secondsLeft / 60);
+    const s = secondsLeft % 60;
+    timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    secondsLeft--;
+  }
+  updateTimer();
+  setInterval(updateTimer, 1000);
+
+})();
+</script>
+{% endblock %}

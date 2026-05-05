@@ -1,0 +1,442 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} — Sport Shop{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Two-column layout (left = main, right = stock/actions) ─ */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+    align-items: start;
+  }
+  .form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Two-up rows inside cards */
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* Margin preview box */
+  .margin-box {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: var(--success-bg);
+    border-radius: var(--radius);
+    border: 1px solid #86EFAC;
+    display: none;
+  }
+  .margin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .margin-row + .margin-row { margin-top: 4px; }
+
+  /* Stock preview chip */
+  .stock-preview {
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  /* Delete button */
+  .btn-delete-product {
+    width: 100%;
+    justify-content: center;
+    color: var(--danger);
+    border: 1px solid var(--danger-bg);
+    background: var(--danger-bg);
+  }
+  .btn-delete-product:hover { background: #FECACA; }
+
+  /* Sticky action card on mobile (always visible) */
+  .actions-card {
+    position: relative;
+  }
+
+  /* ── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+    /* On mobile, action card goes to the BOTTOM, after main info */
+    .form-col-side { order: 2; }
+    .form-col-main { order: 1; }
+  }
+
+  @media (max-width: 600px) {
+    .row-2 {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .card-header { padding: 12px 14px; }
+    .card-body   { padding: 14px; }
+    .form-group  { margin-bottom: 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ─────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ title }}</h1>
+    <p>{% if product %}Update product details and stock information.{% else %}Fill in the details to add a new product to inventory.{% endif %}</p>
+  </div>
+  <div class="page-header-right">
+    <a href="{% url 'product_list' %}" class="btn btn-outline">
+      <i class="bi bi-arrow-left"></i> Back to Products
+    </a>
+  </div>
+</div>
+
+<form method="post" id="product-form" novalidate>
+  {% csrf_token %}
+
+  <div class="form-grid">
+
+    <!-- ══════════════════════════════════════════════════════
+         LEFT COLUMN — Main Info
+    ═══════════════════════════════════════════════════════ -->
+    <div class="form-col form-col-main">
+
+      <!-- ── Card 1 · Product Information ──────────────────── -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-title">
+            <i class="bi bi-info-circle-fill"></i>
+            Product Information
+          </div>
+        </div>
+        <div class="card-body">
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.name.id_for_label }}">
+              Product Name <span class="req">*</span>
+            </label>
+            <input
+              type="text"
+              id="{{ form.name.id_for_label }}"
+              name="name"
+              value="{{ form.name.value|default:'' }}"
+              class="form-control {% if form.name.errors %}is-invalid{% endif %}"
+              placeholder="e.g. Adidas Football Size 5"
+              autocapitalize="words"
+              autocorrect="off"
+              required
+            />
+            {% if form.name.errors %}
+              <div class="form-error">{{ form.name.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="row-2">
+            <div class="form-group">
+              <label class="form-label" for="{{ form.category.id_for_label }}">
+                Category <span class="req">*</span>
+              </label>
+              <select
+                id="{{ form.category.id_for_label }}"
+                name="category"
+                class="form-control {% if form.category.errors %}is-invalid{% endif %}"
+                required
+              >
+                <option value="">— Select Category —</option>
+                {% for cat in form.category.field.queryset %}
+                <option value="{{ cat.pk }}" {% if form.category.value|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ cat.name }}
+                </option>
+                {% endfor %}
+              </select>
+              {% if form.category.errors %}
+                <div class="form-error">{{ form.category.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="{{ form.supplier.id_for_label }}">Supplier</label>
+              <select
+                id="{{ form.supplier.id_for_label }}"
+                name="supplier"
+                class="form-control"
+              >
+                <option value="">— No Supplier —</option>
+                {% for sup in form.supplier.field.queryset %}
+                <option value="{{ sup.pk }}" {% if form.supplier.value|stringformat:"s" == sup.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ sup.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="{{ form.description.id_for_label }}">Description</label>
+            <textarea
+              id="{{ form.description.id_for_label }}"
+              name="description"
+              class="form-control"
+              placeholder="Optional product description, model, size, etc."
+              rows="3"
+            >{{ form.description.value|default:'' }}</textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Card 2 · Pricing ──────────────────────────────── -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-title">
+            <i class="bi bi-currency-rupee"></i> Pricing
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row-2">
+
+            <div class="form-group mb-0">
+              <label class="form-label" for="{{ form.price.id_for_label }}">
+                Selling Price (Rs.) <span class="req">*</span>
+              </label>
+              <input
+                type="number"
+                id="{{ form.price.id_for_label }}"
+                name="price"
+                value="{{ form.price.value|default:'' }}"
+                class="form-control {% if form.price.errors %}is-invalid{% endif %}"
+                placeholder="0"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                required
+              />
+              {% if form.price.errors %}
+                <div class="form-error">{{ form.price.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group mb-0">
+              <label class="form-label" for="{{ form.cost_price.id_for_label }}">
+                Cost Price (Rs.)
+              </label>
+              <input
+                type="number"
+                id="{{ form.cost_price.id_for_label }}"
+                name="cost_price"
+                value="{{ form.cost_price.value|default:0 }}"
+                class="form-control"
+                placeholder="0"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+              />
+              <div class="form-hint">What you paid the supplier</div>
+            </div>
+
+          </div>
+
+          <!-- Profit margin live preview -->
+          <div id="margin-preview" class="margin-box">
+            <div class="margin-row">
+              <span style="font-size:13px;color:var(--success-text);font-weight:500;">Profit per unit</span>
+              <span id="margin-value" style="font-size:16px;font-weight:600;color:var(--success-text);"></span>
+            </div>
+            <div class="margin-row">
+              <span style="font-size:12px;color:var(--success);">Margin</span>
+              <span id="margin-pct" style="font-size:12px;font-weight:500;color:var(--success);"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ══════════════════════════════════════════════════════
+         RIGHT COLUMN — Stock & Submit
+    ═══════════════════════════════════════════════════════ -->
+    <div class="form-col form-col-side">
+
+      <!-- ── Card 3 · Stock Settings ───────────────────────── -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-title">
+            <i class="bi bi-box-seam-fill"></i> Stock Settings
+          </div>
+        </div>
+        <div class="card-body">
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.stock_quantity.id_for_label }}">
+              Current Stock <span class="req">*</span>
+            </label>
+            <input
+              type="number"
+              id="{{ form.stock_quantity.id_for_label }}"
+              name="stock_quantity"
+              value="{{ form.stock_quantity.value|default:0 }}"
+              class="form-control {% if form.stock_quantity.errors %}is-invalid{% endif %}"
+              placeholder="0"
+              min="0"
+              inputmode="numeric"
+              required
+            />
+            {% if form.stock_quantity.errors %}
+              <div class="form-error">{{ form.stock_quantity.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.low_stock_threshold.id_for_label }}">
+              Low Stock Alert Threshold
+            </label>
+            <input
+              type="number"
+              id="{{ form.low_stock_threshold.id_for_label }}"
+              name="low_stock_threshold"
+              value="{{ form.low_stock_threshold.value|default:5 }}"
+              class="form-control"
+              placeholder="5"
+              min="0"
+              inputmode="numeric"
+            />
+            <div class="form-hint">Alert when stock drops below this number.</div>
+          </div>
+
+          <!-- Live stock status -->
+          <div id="stock-preview" class="stock-preview"></div>
+
+        </div>
+      </div>
+
+      <!-- ── Card 4 · Action Buttons ───────────────────────── -->
+      <div class="card actions-card">
+        <div class="card-body">
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:15px;">
+            <i class="bi bi-{% if product %}check-lg{% else %}plus-lg{% endif %}"></i>
+            {% if product %}Update Product{% else %}Add Product{% endif %}
+          </button>
+
+          <a href="{% url 'product_list' %}" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px;">
+            Cancel
+          </a>
+
+          {% if product %}
+          <hr style="border-color:var(--gray-100);margin:16px 0;">
+          <button
+            type="button"
+            onclick="confirmDelete('side-delete-form', '{{ product.name|escapejs }}')"
+            class="btn btn-delete-product"
+          >
+            <i class="bi bi-trash3-fill"></i>
+            Delete This Product
+          </button>
+          <form id="side-delete-form" method="post" action="{% url 'product_delete' product.pk %}" style="display:none;">
+            {% csrf_token %}
+          </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- ── Tips ──────────────────────────────────────────── -->
+      <div class="alert-box info">
+        <i class="bi bi-lightbulb-fill"></i>
+        <div>
+          <strong>Tip:</strong> Set a realistic low-stock threshold based on how quickly this item sells.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  'use strict';
+
+  // Cache form elements once
+  const priceEl     = document.getElementById('{{ form.price.id_for_label }}');
+  const costEl      = document.getElementById('{{ form.cost_price.id_for_label }}');
+  const stockEl     = document.getElementById('{{ form.stock_quantity.id_for_label }}');
+  const thresholdEl = document.getElementById('{{ form.low_stock_threshold.id_for_label }}');
+
+  const marginBox = document.getElementById('margin-preview');
+  const marginVal = document.getElementById('margin-value');
+  const marginPct = document.getElementById('margin-pct');
+
+  const stockBox = document.getElementById('stock-preview');
+
+  // ── Profit margin calc ──────────────────────────────────
+  function calcMargin() {
+    const price = parseFloat(priceEl.value) || 0;
+    const cost  = parseFloat(costEl.value) || 0;
+
+    if (price > 0 && cost > 0) {
+      const profit = price - cost;
+      const pct    = ((profit / price) * 100).toFixed(1);
+      marginBox.style.display = 'block';
+      marginVal.textContent   = 'Rs. ' + profit.toLocaleString();
+      marginPct.textContent   = pct + '% margin';
+      marginBox.style.background = profit >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)';
+      marginBox.style.borderColor = profit >= 0 ? '#86EFAC' : '#FCA5A5';
+    } else {
+      marginBox.style.display = 'none';
+    }
+  }
+
+  // ── Stock status preview ────────────────────────────────
+  function updateStockPreview() {
+    const qty       = parseInt(stockEl.value) || 0;
+    const threshold = parseInt(thresholdEl.value) || 5;
+
+    if (qty === 0) {
+      stockBox.style.background = 'var(--danger-bg)';
+      stockBox.style.color      = 'var(--danger-text)';
+      stockBox.innerHTML        = '<i class="bi bi-x-circle-fill"></i> Out of Stock';
+    } else if (qty <= threshold) {
+      stockBox.style.background = 'var(--warning-bg)';
+      stockBox.style.color      = 'var(--warning-text)';
+      stockBox.innerHTML        = '<i class="bi bi-exclamation-triangle-fill"></i> Low Stock (' + qty + ' units)';
+    } else {
+      stockBox.style.background = 'var(--success-bg)';
+      stockBox.style.color      = 'var(--success-text)';
+      stockBox.innerHTML        = '<i class="bi bi-check-circle-fill"></i> In Stock (' + qty + ' units)';
+    }
+  }
+
+  // Wire up listeners
+  priceEl.addEventListener('input',     calcMargin);
+  costEl.addEventListener('input',      calcMargin);
+  stockEl.addEventListener('input',     updateStockPreview);
+  thresholdEl.addEventListener('input', updateStockPreview);
+
+  // Initial render on page load
+  calcMargin();
+  updateStockPreview();
+})();
+</script>
+{% endblock %}

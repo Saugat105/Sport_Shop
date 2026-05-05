@@ -1,0 +1,540 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Team — {{ user.profile.shop.name }}{% endblock %}
+{% block page_title %}Team Management{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Roles legend grid ──────────────────────────────────── */
+  .role-legend {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .role-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-left-width: 3px;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .role-card.owner-card { border-left-color: #F59E0B; }
+  .role-card.admin-card { border-left-color: var(--primary); }
+  .role-card.staff-card { border-left-color: var(--gray-400); }
+  .role-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .role-icon.owner { background: #FEF3C7; color: #B45309; }
+  .role-icon.admin { background: var(--primary-bg); color: var(--primary); }
+  .role-icon.staff { background: var(--gray-100); color: var(--gray-600); }
+  .role-title { font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 1px; }
+  .role-sub   { font-size: 11px; color: var(--gray-500); line-height: 1.3; }
+
+  /* ── Member avatar ──────────────────────────────────────── */
+  .member-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  /* ── Mobile member cards ────────────────────────────────── */
+  .mobile-cards { display: none; }
+
+  .member-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .mc-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .mc-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .mc-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-900);
+    line-height: 1.2;
+    margin-bottom: 2px;
+    word-break: break-word;
+  }
+  .mc-username {
+    font-size: 12px;
+    color: var(--gray-500);
+    font-family: 'Courier New', monospace;
+  }
+  .mc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--gray-100);
+    font-size: 12px;
+    color: var(--gray-500);
+  }
+  .mc-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mc-meta-row i { font-size: 11px; color: var(--gray-400); }
+  .mc-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  /* ── Pass toggle (large touch target) ───────────────────── */
+  .pass-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+  }
+  .pass-toggle:hover  { background: var(--gray-100); }
+  .pass-toggle:active { background: var(--gray-200); }
+
+  /* ── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    /* Hide email column on tablets to save space */
+    .data-table thead th:nth-child(3),
+    .data-table tbody td:nth-child(3) { display: none; }
+  }
+
+  @media (max-width: 768px) {
+    .role-legend { grid-template-columns: 1fr; gap: 8px; }
+    .desktop-table-card { display: none; }
+    .mobile-cards       { display: block; }
+  }
+
+  @media (max-width: 480px) {
+    .modal-foot { flex-direction: column-reverse; }
+    .modal-foot .btn { width: 100%; justify-content: center; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ─────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Team</h1>
+    <p>Manage who can access <strong>{{ user.profile.shop.name }}</strong> — {{ members.count }} member{{ members.count|pluralize }}</p>
+  </div>
+  <div class="page-header-right">
+    {% if is_owner %}
+    <button class="btn btn-primary" onclick="openModal('invite-modal')">
+      <i class="bi bi-person-plus-fill"></i> Add Member
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Permission Notice (non-owners) ──────────────────────── -->
+{% if not is_owner %}
+<div class="alert-box info" style="margin-bottom:18px;">
+  <i class="bi bi-info-circle-fill"></i>
+  <div>
+    Only the shop <strong>owner</strong> can add or remove team members.
+    Contact your owner to make changes.
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Roles Legend ───────────────────────────────────────── -->
+<div class="role-legend">
+  <div class="role-card owner-card">
+    <div class="role-icon owner"><i class="bi bi-crown-fill"></i></div>
+    <div>
+      <div class="role-title">Owner</div>
+      <div class="role-sub">Full access · manages team</div>
+    </div>
+  </div>
+  <div class="role-card admin-card">
+    <div class="role-icon admin"><i class="bi bi-shield-fill-check"></i></div>
+    <div>
+      <div class="role-title">Admin</div>
+      <div class="role-sub">Manage products, view reports</div>
+    </div>
+  </div>
+  <div class="role-card staff-card">
+    <div class="role-icon staff"><i class="bi bi-person-fill"></i></div>
+    <div>
+      <div class="role-title">Staff</div>
+      <div class="role-sub">Make sales, basic access</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     DESKTOP — Members Table
+═══════════════════════════════════════════════════════════ -->
+<div class="card desktop-table-card">
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Joined</th>
+          {% if is_owner %}
+          <th style="text-align:center;">Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for member in members %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="member-avatar">{{ member.user.username|first|upper }}</div>
+              <div>
+                <div style="font-weight:500;color:var(--gray-900);">
+                  {{ member.user.get_full_name|default:member.user.username }}
+                  {% if member.user == request.user %}
+                  <span class="badge-pill badge-primary" style="margin-left:6px;font-size:10px;">You</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td style="color:var(--gray-600);font-family:'Courier New',monospace;font-size:13px;">
+            {{ member.user.username }}
+          </td>
+          <td style="color:var(--gray-600);">
+            {% if member.user.email %}
+              <a href="mailto:{{ member.user.email }}" style="color:var(--primary);text-decoration:none;">{{ member.user.email }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if member.role == 'owner' %}
+              <span class="badge-pill" style="background:#FEF3C7;color:#92400E;">
+                <i class="bi bi-crown-fill"></i> Owner
+              </span>
+            {% elif member.role == 'admin' %}
+              <span class="badge-pill badge-primary">
+                <i class="bi bi-shield-fill-check"></i> Admin
+              </span>
+            {% else %}
+              <span class="badge-pill badge-neutral">
+                <i class="bi bi-person-fill"></i> Staff
+              </span>
+            {% endif %}
+          </td>
+          <td style="font-size:13px;color:var(--gray-500);">
+            {{ member.user.date_joined|date:"M d, Y" }}
+          </td>
+          {% if is_owner %}
+          <td style="text-align:center;">
+            {% if member.user != request.user and member.role != 'owner' %}
+              <button
+                type="button"
+                onclick="confirmRemove('{{ member.pk }}', '{{ member.user.username|escapejs }}')"
+                class="btn btn-ghost btn-sm"
+                title="Remove from team"
+                style="color:var(--danger);"
+              >
+                <i class="bi bi-person-x-fill"></i>
+              </button>
+              <form id="remove-form-{{ member.pk }}" method="post"
+                    action="{% url 'team_remove' member.pk %}"
+                    style="display:none;">
+                {% csrf_token %}
+              </form>
+            {% else %}
+              <span style="color:var(--gray-300);font-size:12px;">—</span>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if is_owner %}6{% else %}5{% endif %}">
+            <div class="empty-state">
+              <i class="bi bi-people"></i>
+              <h3>No team members yet</h3>
+              <p>Add staff and admins to help manage your shop.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     MOBILE — Member Cards
+═══════════════════════════════════════════════════════════ -->
+<div class="mobile-cards">
+  {% for member in members %}
+  <div class="member-card">
+    <div class="mc-top">
+      <div class="member-avatar">{{ member.user.username|first|upper }}</div>
+      <div class="mc-info">
+        <div class="mc-name">
+          {{ member.user.get_full_name|default:member.user.username }}
+          {% if member.user == request.user %}
+          <span class="badge-pill badge-primary" style="margin-left:4px;font-size:9px;padding:1px 6px;">You</span>
+          {% endif %}
+        </div>
+        <div class="mc-username">@{{ member.user.username }}</div>
+      </div>
+      <div>
+        {% if member.role == 'owner' %}
+          <span class="badge-pill" style="background:#FEF3C7;color:#92400E;font-size:11px;">
+            <i class="bi bi-crown-fill"></i> Owner
+          </span>
+        {% elif member.role == 'admin' %}
+          <span class="badge-pill badge-primary" style="font-size:11px;">
+            <i class="bi bi-shield-fill-check"></i> Admin
+          </span>
+        {% else %}
+          <span class="badge-pill badge-neutral" style="font-size:11px;">
+            <i class="bi bi-person-fill"></i> Staff
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="mc-meta">
+      {% if member.user.email %}
+      <div class="mc-meta-row">
+        <i class="bi bi-envelope-fill"></i>
+        <a href="mailto:{{ member.user.email }}" style="color:var(--primary);text-decoration:none;">{{ member.user.email }}</a>
+      </div>
+      {% endif %}
+      <div class="mc-meta-row">
+        <i class="bi bi-calendar3"></i>
+        Joined {{ member.user.date_joined|date:"M d, Y" }}
+      </div>
+    </div>
+
+    {% if is_owner and member.user != request.user and member.role != 'owner' %}
+    <div class="mc-actions">
+      <button
+        type="button"
+        onclick="confirmRemove('{{ member.pk }}', '{{ member.user.username|escapejs }}')"
+        class="btn btn-outline btn-sm"
+        style="color:var(--danger);border-color:var(--danger-bg);"
+      >
+        <i class="bi bi-person-x-fill"></i> Remove
+      </button>
+    </div>
+    <form id="remove-form-{{ member.pk }}" method="post"
+          action="{% url 'team_remove' member.pk %}"
+          style="display:none;">
+      {% csrf_token %}
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="card">
+    <div class="empty-state">
+      <i class="bi bi-people"></i>
+      <h3>No team members yet</h3>
+      <p>Add staff and admins to help manage your shop.</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     ADD MEMBER MODAL  (owner-only)
+═══════════════════════════════════════════════════════════ -->
+{% if is_owner %}
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-head">
+      <h3>
+        <i class="bi bi-person-plus-fill" style="color:var(--primary);margin-right:8px;"></i>
+        Add Team Member
+      </h3>
+      <button class="modal-close" onclick="closeModal('invite-modal')" aria-label="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <form method="post" action="{% url 'team_invite' %}">
+      {% csrf_token %}
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
+
+        <div class="alert-box info" style="margin-bottom:0;">
+          <i class="bi bi-info-circle-fill"></i>
+          <div style="font-size:13px;">
+            Set a temporary password and share it with your new team member.
+            They can change it after their first login.
+          </div>
+        </div>
+
+        <!-- Username -->
+        <div class="form-group mb-0">
+          <label class="form-label" for="invite-username">
+            Username <span class="req">*</span>
+          </label>
+          <input
+            type="text"
+            id="invite-username"
+            name="username"
+            class="form-control"
+            placeholder="e.g. ramesh_shop"
+            required
+            autocapitalize="none"
+            autocorrect="off"
+            autocomplete="off"
+          />
+          <div class="form-hint">Must be unique across the entire system.</div>
+        </div>
+
+        <!-- Email -->
+        <div class="form-group mb-0">
+          <label class="form-label" for="invite-email">Email</label>
+          <input
+            type="email"
+            id="invite-email"
+            name="email"
+            class="form-control"
+            placeholder="staff@example.com (optional)"
+            inputmode="email"
+            autocapitalize="none"
+            autocorrect="off"
+            autocomplete="off"
+          />
+        </div>
+
+        <!-- Role -->
+        <div class="form-group mb-0">
+          <label class="form-label" for="invite-role">
+            Role <span class="req">*</span>
+          </label>
+          <select id="invite-role" name="role" class="form-control" required>
+            <option value="staff">Staff — can make sales</option>
+            <option value="admin">Admin — can also manage products</option>
+          </select>
+        </div>
+
+        <!-- Password -->
+        <div class="form-group mb-0">
+          <label class="form-label" for="invite-password">
+            Temporary Password <span class="req">*</span>
+          </label>
+          <div style="position:relative;">
+            <input
+              type="password"
+              id="invite-password"
+              name="password"
+              class="form-control"
+              placeholder="At least 6 characters"
+              minlength="6"
+              required
+              autocomplete="new-password"
+              style="padding-right:48px;"
+            />
+            <button type="button" class="pass-toggle" onclick="togglePass()" aria-label="Toggle password visibility">
+              <i class="bi bi-eye" id="invite-eye"></i>
+            </button>
+          </div>
+          <div class="form-hint">Share this password with the team member privately.</div>
+        </div>
+
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('invite-modal')">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-person-plus-fill"></i> Add Member
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  'use strict';
+
+  window.confirmRemove = function(pk, username) {
+    if (confirm(
+      'Remove "' + username + '" from your team?\n\n' +
+      'They will lose access to this shop, but their past sales records will be preserved.'
+    )) {
+      document.getElementById('remove-form-' + pk).submit();
+    }
+  };
+
+  window.togglePass = function() {
+    const input = document.getElementById('invite-password');
+    const eye   = document.getElementById('invite-eye');
+    if (input.type === 'password') {
+      input.type = 'text';
+      eye.className = 'bi bi-eye-slash';
+    } else {
+      input.type = 'password';
+      eye.className = 'bi bi-eye';
+    }
+  };
+
+  // Auto-focus username when add modal opens
+  const origOpenModal = window.openModal;
+  if (origOpenModal) {
+    window.openModal = function(id) {
+      origOpenModal(id);
+      if (id === 'invite-modal') {
+        setTimeout(function() {
+          const el = document.getElementById('invite-username');
+          if (el) el.focus();
+        }, 200);
+      }
+    };
+  }
+})();
+</script>
+{% endblock %}

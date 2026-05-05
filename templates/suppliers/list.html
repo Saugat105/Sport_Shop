@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Suppliers — Sport Shop{% endblock %}
+{% block page_title %}Suppliers{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Search bar ─────────────────────────────────────────── */
+  .sup-search-wrap { margin-bottom: 14px; }
+
+  /* ── Mobile supplier cards ──────────────────────────────── */
+  .mobile-cards { display: none; }
+
+  .sup-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    transition: box-shadow .15s;
+  }
+  .sup-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .sup-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-900);
+    line-height: 1.3;
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+  }
+  .sup-products {
+    flex-shrink: 0;
+  }
+
+  .sup-meta {
+    font-size: 13px;
+    color: var(--gray-600);
+    line-height: 1.6;
+  }
+  .sup-meta-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .sup-meta-row i {
+    width: 16px;
+    color: var(--gray-400);
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .sup-meta-row a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .sup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--gray-100);
+  }
+  .sup-action-btn {
+    width: 36px;
+    height: 36px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gray-600);
+    font-size: 14px;
+    transition: all .15s;
+  }
+  .sup-action-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
+  .sup-action-btn.danger { color: var(--danger); }
+  .sup-action-btn.danger:hover { background: var(--danger-bg); border-color: #FCA5A5; }
+
+  /* ── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    /* Hide email column on tablets */
+    .data-table thead th:nth-child(4),
+    .data-table tbody td:nth-child(4) { display: none; }
+  }
+
+  @media (max-width: 768px) {
+    .desktop-table-card { display: none; }
+    .mobile-cards       { display: block; }
+  }
+
+  @media (max-width: 480px) {
+    .modal-foot { flex-direction: column-reverse; }
+    .modal-foot .btn { width: 100%; justify-content: center; }
+    .form-row-2 { grid-template-columns: 1fr; gap: 0; }
+  }
+
+  /* Form 2-col row */
+  .form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ─────────────────────────────────────────── -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Suppliers</h1>
+    <p>{{ suppliers.count }} supplier{{ suppliers.count|pluralize }} registered for {{ user.profile.shop.name }}</p>
+  </div>
+  <div class="page-header-right">
+    <button class="btn btn-primary" onclick="openModal('add-supplier-modal')">
+      <i class="bi bi-plus-lg"></i> Add Supplier
+    </button>
+  </div>
+</div>
+
+{% if suppliers %}
+<!-- ── Search bar ─────────────────────────────────────────── -->
+<div class="sup-search-wrap">
+  <div class="product-search">
+    <i class="bi bi-search"></i>
+    <input
+      type="text"
+      id="sup-search"
+      placeholder="Search suppliers by name, phone, or email..."
+      autocomplete="off"
+      inputmode="search"
+    />
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     DESKTOP — Table view
+═══════════════════════════════════════════════════════════ -->
+<div class="card desktop-table-card">
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Address</th>
+          <th style="text-align:center;">Products</th>
+          <th style="text-align:center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suppliers %}
+        <tr class="sup-row"
+            data-search="{{ s.name|lower }} {{ s.phone|lower }} {{ s.email|lower }}">
+          <td style="color:var(--gray-400);">{{ forloop.counter }}</td>
+          <td style="font-weight:500;color:var(--gray-900);">{{ s.name }}</td>
+          <td style="color:var(--gray-600);">
+            {% if s.phone %}
+              <a href="tel:{{ s.phone }}" style="color:inherit;text-decoration:none;">{{ s.phone }}</a>
+            {% else %}
+              <span style="color:var(--gray-300);">—</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--gray-600);">
+            {% if s.email %}
+              <a href="mailto:{{ s.email }}" style="color:var(--primary);text-decoration:none;">{{ s.email }}</a>
+            {% else %}
+              <span style="color:var(--gray-300);">—</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--gray-500);">{{ s.address|default:"—"|truncatechars:40 }}</td>
+          <td style="text-align:center;">
+            <span class="badge-pill badge-neutral">{{ s.products.count }}</span>
+          </td>
+          <td style="text-align:center;">
+            <button
+              type="button"
+              onclick="confirmDelete('sup-delete-form-{{ s.pk }}', '{{ s.name|escapejs }}')"
+              class="btn btn-ghost btn-sm" title="Delete"
+              style="color:var(--danger);">
+              <i class="bi bi-trash3-fill"></i>
+            </button>
+            <form id="sup-delete-form-{{ s.pk }}" method="post"
+                  action="{% url 'supplier_delete' s.pk %}" class="delete-form" style="display:none;">
+              {% csrf_token %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <i class="bi bi-truck-front"></i>
+              <h3>No suppliers yet</h3>
+              <p>Add suppliers to track where your products come from.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     MOBILE — Card view
+═══════════════════════════════════════════════════════════ -->
+<div class="mobile-cards">
+  {% for s in suppliers %}
+  <div class="sup-card sup-card-mobile"
+       data-search="{{ s.name|lower }} {{ s.phone|lower }} {{ s.email|lower }}">
+
+    <div class="sup-card-top">
+      <div class="sup-name">{{ s.name }}</div>
+      <div class="sup-products">
+        <span class="badge-pill badge-neutral" style="font-size:11px;">
+          <i class="bi bi-box-seam"></i> {{ s.products.count }}
+        </span>
+      </div>
+    </div>
+
+    <div class="sup-meta">
+      {% if s.phone %}
+      <div class="sup-meta-row">
+        <i class="bi bi-telephone-fill"></i>
+        <a href="tel:{{ s.phone }}">{{ s.phone }}</a>
+      </div>
+      {% endif %}
+      {% if s.email %}
+      <div class="sup-meta-row">
+        <i class="bi bi-envelope-fill"></i>
+        <a href="mailto:{{ s.email }}">{{ s.email }}</a>
+      </div>
+      {% endif %}
+      {% if s.address %}
+      <div class="sup-meta-row">
+        <i class="bi bi-geo-alt-fill"></i>
+        <span>{{ s.address|truncatechars:80 }}</span>
+      </div>
+      {% endif %}
+      {% if not s.phone and not s.email and not s.address %}
+      <div class="sup-meta-row" style="color:var(--gray-400);font-style:italic;">
+        <i class="bi bi-info-circle"></i>
+        <span>No contact info</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="sup-actions">
+      <button
+        type="button"
+        class="sup-action-btn danger"
+        onclick="confirmDelete('m-sup-delete-{{ s.pk }}', '{{ s.name|escapejs }}')"
+        title="Delete supplier">
+        <i class="bi bi-trash3-fill"></i>
+      </button>
+      <form id="m-sup-delete-{{ s.pk }}" method="post"
+            action="{% url 'supplier_delete' s.pk %}" class="delete-form" style="display:none;">
+        {% csrf_token %}
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- No-results message -->
+<div id="no-results" class="empty-state" style="display:none;">
+  <i class="bi bi-search"></i>
+  <h3>No suppliers match</h3>
+  <p>Try a different search term.</p>
+</div>
+
+{% else %}
+<!-- ── Empty state ─────────────────────────────────────────── -->
+<div class="card">
+  <div class="empty-state" style="padding:60px 24px;">
+    <i class="bi bi-truck-front" style="font-size:48px;color:var(--gray-300);display:block;margin-bottom:12px;"></i>
+    <h3 style="color:var(--gray-500);margin-bottom:6px;">No suppliers yet</h3>
+    <p style="color:var(--gray-400);font-size:14px;">Add suppliers to track where your products come from.</p>
+    <button class="btn btn-primary" style="margin-top:16px;" onclick="openModal('add-supplier-modal')">
+      <i class="bi bi-plus-lg"></i> Add First Supplier
+    </button>
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ══════════════════════════════════════════════════════════
+     ADD SUPPLIER MODAL
+═══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="add-supplier-modal">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-head">
+      <h3>
+        <i class="bi bi-truck-front-fill" style="color:var(--primary);margin-right:8px;"></i>
+        Add Supplier
+      </h3>
+      <button class="modal-close" onclick="closeModal('add-supplier-modal')" aria-label="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <form method="post" action="{% url 'supplier_add' %}">
+      {% csrf_token %}
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
+
+        <div class="form-group mb-0">
+          <label class="form-label" for="sup-name">
+            Supplier Name <span class="req">*</span>
+          </label>
+          <input
+            type="text"
+            id="sup-name"
+            name="name"
+            class="form-control"
+            required
+            autocapitalize="words"
+            autocorrect="off"
+            placeholder="e.g. ABC Sports Wholesale"
+          />
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group mb-0">
+            <label class="form-label" for="sup-phone">Phone</label>
+            <input
+              type="tel"
+              id="sup-phone"
+              name="phone"
+              class="form-control"
+              inputmode="tel"
+              placeholder="+977-xxx-xxxx"
+            />
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label" for="sup-email">Email</label>
+            <input
+              type="email"
+              id="sup-email"
+              name="email"
+              class="form-control"
+              inputmode="email"
+              autocapitalize="none"
+              autocorrect="off"
+              placeholder="email@example.com"
+            />
+          </div>
+        </div>
+
+        <div class="form-group mb-0">
+          <label class="form-label" for="sup-address">Address</label>
+          <textarea
+            id="sup-address"
+            name="address"
+            class="form-control"
+            rows="2"
+            placeholder="City, District, Nepal"
+          ></textarea>
+        </div>
+
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" onclick="closeModal('add-supplier-modal')">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-plus-lg"></i> Add Supplier
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  'use strict';
+
+  const searchEl  = document.getElementById('sup-search');
+  if (!searchEl) return;
+
+  const desktopRows = document.querySelectorAll('.sup-row');
+  const mobileCards = document.querySelectorAll('.sup-card-mobile');
+  const noResults   = document.getElementById('no-results');
+
+  let timer;
+  searchEl.addEventListener('input', function() {
+    clearTimeout(timer);
+    timer = setTimeout(applySearch, 100);
+  });
+
+  function applySearch() {
+    const q = searchEl.value.toLowerCase().trim();
+    let visible = 0;
+
+    function check(el) {
+      const ok = !q || (el.dataset.search || '').includes(q);
+      el.style.display = ok ? '' : 'none';
+      if (ok) visible++;
+    }
+    desktopRows.forEach(check);
+    mobileCards.forEach(check);
+
+    if (noResults) {
+      noResults.style.display = (visible === 0) ? '' : 'none';
+    }
+  }
+
+  // Auto-focus name field when add modal opens
+  const origOpenModal = window.openModal;
+  if (origOpenModal) {
+    window.openModal = function(id) {
+      origOpenModal(id);
+      if (id === 'add-supplier-modal') {
+        setTimeout(function() {
+          const el = document.getElementById('sup-name');
+          if (el) el.focus();
+        }, 200);
+      }
+    };
+  }
+})();
+</script>
+{% endblock %}
