@@ -184,11 +184,14 @@ def logout_view(request):
 @login_required
 @shop_required
 
+@login_required
+@shop_required
 def dashboard(request):
     today = timezone.now().date()
     shop  = request.shop
     role  = request.user.profile.role
     is_owner = role == 'owner'
+    is_admin_or_owner = role in ('owner', 'admin')
 
     # ── Today's stats ──
     today_sales = Sale.objects.filter(shop=shop, created_at__date=today)
@@ -223,7 +226,7 @@ def dashboard(request):
     ).order_by('-total_qty')[:5]
 
     # ══════════════════════════════════════════════════════════════
-    # PROFIT CALCULATION  (Owner & Admin only — sensitive financial data)
+    # PROFIT CALCULATION  —  Owner only
     # ══════════════════════════════════════════════════════════════
     today_profit   = 0
     monthly_profit = 0
@@ -231,10 +234,6 @@ def dashboard(request):
     total_revenue  = 0
 
     if is_owner:
-        # Profit per line: quantity * (unit_price - product.cost_price)
-        # We use the SaleItem's unit_price (snapshot at sale time) and
-        # the Product's CURRENT cost_price.
-
         def calc_profit(items_qs):
             """Sum of (qty * unit_price) minus (qty * cost_price)."""
             revenue = items_qs.aggregate(
@@ -259,7 +258,7 @@ def dashboard(request):
         )
         monthly_profit = calc_profit(monthly_items)
 
-        # All-time profit + revenue (for owners only)
+        # All-time profit + revenue
         all_items = SaleItem.objects.filter(sale__shop=shop)
         total_profit = calc_profit(all_items)
 
@@ -280,19 +279,18 @@ def dashboard(request):
         'top_products':     top_products,
         'week_data':        json.dumps(week_data),
 
-        # ── Profit data (only populated for owner/admin) ──
+        # ── Profit data (owner only) ──
         'show_profit':      is_owner,
         'today_profit':     today_profit,
         'monthly_profit':   monthly_profit,
         'total_profit':     total_profit,
         'total_revenue':    total_revenue,
 
-        # ── Role flags for template ──
+        # ── Role flags ──
         'user_role':        role,
-        'is_owner':         role == 'owner',
-        'is_admin_or_owner': role in ('owner', 'admin'),
+        'is_owner':         is_owner,
+        'is_admin_or_owner': is_admin_or_owner,
     })
-
 # ═════════════════════════════════════════════════════════════
 # PRODUCTS
 # ═════════════════════════════════════════════════════════════
