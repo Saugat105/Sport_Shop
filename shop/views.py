@@ -24,17 +24,15 @@ from .utils import shop_required, role_required
 
 # ── Update signup() — store email in session ──
 def signup(request):
-    """Sign up: creates User+Shop, sends verification email, does NOT auto-login."""
     if request.user.is_authenticated:
         return redirect('dashboard')
- 
+
     if request.method == 'POST':
         form = SignupForm(request.POST)
         if form.is_valid():
             user = form.save()
             try:
                 send_verification_email(request, user)
-                # Save email in session so verification_sent page can prefill it
                 request.session['pending_verification_email'] = user.email
                 messages.success(
                     request,
@@ -42,17 +40,19 @@ def signup(request):
                 )
                 return redirect('verification_sent')
             except Exception as e:
+                # Email failed — show specific error, delete user so they can retry
                 user.delete()
                 messages.error(
                     request,
-                    'Could not send verification email. Please check your email and try again.'
+                    'Could not send verification email. '
+                    'This usually means our email service is temporarily unavailable. '
+                    'Please try again in a moment.'
                 )
                 return render(request, 'registration/signup.html', {'form': form})
     else:
         form = SignupForm()
- 
-    return render(request, 'registration/signup.html', {'form': form})
 
+    return render(request, 'registration/signup.html', {'form': form})
 
 def verification_sent(request):
     """

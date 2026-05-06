@@ -183,6 +183,7 @@ else:
     EMAIL_USE_TLS       = True
     EMAIL_HOST_USER     = os.environ.get('EMAIL_USER', '')
     EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASSWORD', '')
+    EMAIL_TIMEOUT       = 10  # seconds
 
 DEFAULT_FROM_EMAIL = f"Sport Shop Nepal <{os.environ.get('EMAIL_USER', 'noreply@sportshop.com')}>"
 
