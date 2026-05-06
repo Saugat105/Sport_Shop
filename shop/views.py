@@ -182,22 +182,29 @@ def logout_view(request):
 # DASHBOARD
 # ═════════════════════════════════════════════════════════════
 
-@login_required
-@shop_required
+
 
 @login_required
 @shop_required
 def dashboard(request):
-    today = timezone.now().date()
     shop  = request.shop
     role  = request.user.profile.role
     is_owner = role == 'owner'
     is_admin_or_owner = role in ('owner', 'admin')
 
-    # ── Today's stats ──
-    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # ── Timezone-aware "today" range ─────────────────────────
+    # Use the user's local time (Nepal) to get start/end of today
+    now_local   = timezone.localtime(timezone.now())
+    today       = now_local.date()
+    today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end   = today_start + timedelta(days=1)
-    today_sales = Sale.objects.filter(shop=shop, created_at__gte=today_start, created_at__lt=today_end)
+
+    # ── Today's stats (use range, not __date) ────────────────
+    today_sales = Sale.objects.filter(
+        shop=shop,
+        created_at__gte=today_start,
+        created_at__lt=today_end,
+    )
     today_total = today_sales.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
     today_count = today_sales.count()
 
@@ -209,14 +216,17 @@ def dashboard(request):
     all_products    = Product.objects.filter(shop=shop).select_related('category')
     low_stock_items = [p for p in all_products if p.is_low_stock]
 
-    # ── Weekly chart data (last 7 days) ──
+    # ── Weekly chart data (last 7 days) — also timezone-aware ──
     week_data = []
     for i in range(6, -1, -1):
-        day = today - timedelta(days=i)
+        day_start = today_start - timedelta(days=i)
+        day_end   = day_start + timedelta(days=1)
         total = Sale.objects.filter(
-            shop=shop, created_at__date=day
+            shop=shop,
+            created_at__gte=day_start,
+            created_at__lt=day_end,
         ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
-        week_data.append({'day': day.strftime('%a'), 'total': float(total)})
+        week_data.append({'day': day_start.strftime('%a'), 'total': float(total)})
 
     # ── Top selling products this month ──
     top_products = SaleItem.objects.filter(
@@ -238,7 +248,6 @@ def dashboard(request):
 
     if is_owner:
         def calc_profit(items_qs):
-            """Sum of (qty * unit_price) minus (qty * cost_price)."""
             revenue = items_qs.aggregate(
                 total=Sum(F('quantity') * F('unit_price'))
             )['total'] or 0
@@ -247,9 +256,11 @@ def dashboard(request):
             )['total'] or 0
             return revenue - cost
 
-        # Today's profit
+        # Today's profit — use range filter (timezone-aware)
         today_items = SaleItem.objects.filter(
-            sale__shop=shop, sale__created_at__date=today
+            sale__shop=shop,
+            sale__created_at__gte=today_start,
+            sale__created_at__lt=today_end,
         )
         today_profit = calc_profit(today_items)
 
@@ -282,18 +293,19 @@ def dashboard(request):
         'top_products':     top_products,
         'week_data':        json.dumps(week_data),
 
-        # ── Profit data (owner only) ──
+        # Profit data (owner only)
         'show_profit':      is_owner,
         'today_profit':     today_profit,
         'monthly_profit':   monthly_profit,
         'total_profit':     total_profit,
         'total_revenue':    total_revenue,
 
-        # ── Role flags ──
+        # Role flags
         'user_role':        role,
         'is_owner':         is_owner,
         'is_admin_or_owner': is_admin_or_owner,
     })
+
 # ═════════════════════════════════════════════════════════════
 # PRODUCTS
 # ═════════════════════════════════════════════════════════════
