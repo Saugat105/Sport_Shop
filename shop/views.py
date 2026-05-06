@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from django.utils.timezone import localtime
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -194,7 +195,9 @@ def dashboard(request):
     is_admin_or_owner = role in ('owner', 'admin')
 
     # ── Today's stats ──
-    today_sales = Sale.objects.filter(shop=shop, created_at__date=today)
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end   = today_start + timedelta(days=1)
+    today_sales = Sale.objects.filter(shop=shop, created_at__gte=today_start, created_at__lt=today_end)
     today_total = today_sales.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
     today_count = today_sales.count()
 
