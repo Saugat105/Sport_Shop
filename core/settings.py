@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'crispy_forms',
     'crispy_bootstrap5',
-    'import_export',
+    
 
     # Local
     'shop',
