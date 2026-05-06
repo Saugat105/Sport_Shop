@@ -2,22 +2,38 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.Python
+
+# Virtual environments
 venv/
 .venv/
+env/
 
 # Django
+*.log
 db.sqlite3
 db.sqlite3-journal
 /media/
 /staticfiles/
 
-# Environment variables (NEVER commit these!)
+# Environment variables (CRITICAL — never commit!)
 .env
+.env.local
+.env.production
 
 # IDE
 .vscode/
 .idea/
+*.swp
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Internal snippet files (not needed in production)
+_*.py
+_*.html

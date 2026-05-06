@@ -4,3 +4,7 @@ pillow
 django-crispy-forms 
 crispy-bootstrap5
 python-decouple
+gunicorn 
+whitenoise 
+dj-database-url 
+psycopg2-binary
