@@ -19,6 +19,30 @@
   <link rel="stylesheet" href="{% static 'css/main.css' %}" />
 
   {% block extra_css %}{% endblock %}
+  <style>
+    .logout-btn { background: none; border: none; padding: 0; cursor: pointer; color: inherit; }
+    .logout-modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    .logout-modal-backdrop.show { display: flex; }
+    .logout-modal {
+      background: #fff; border-radius: 14px; padding: 2rem 2.2rem;
+      width: min(360px, 90vw); text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+      animation: modalIn .18s ease;
+    }
+    @keyframes modalIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .logout-modal-icon { font-size: 2.2rem; color: #e74c3c; margin-bottom: .6rem; }
+    .logout-modal h5 { font-weight: 700; margin-bottom: .3rem; }
+    .logout-modal p  { color: #666; font-size: .95rem; margin-bottom: 1.4rem; }
+    .logout-modal-actions { display: flex; gap: .75rem; justify-content: center; }
+    .btn-cancel  { padding: .5rem 1.4rem; border-radius: 8px; border: 1.5px solid #ccc; background: #fff; cursor: pointer; font-weight: 500; }
+    .btn-cancel:hover { background: #f5f5f5; }
+    .btn-confirm { padding: .5rem 1.4rem; border-radius: 8px; background: #e74c3c; color: #fff; text-decoration: none; font-weight: 600; }
+    .btn-confirm:hover { background: #c0392b; color: #fff; }
+  </style>
 </head>
 <body>
 
@@ -127,9 +151,9 @@
           </span>
         </div>
       </div>
-      <a href="{% url 'logout' %}" class="logout-btn" title="Logout">
+      <button onclick="document.getElementById('logoutModal').classList.add('show')" class="logout-btn" title="Logout">
         <i class="bi bi-box-arrow-right"></i>
-      </a>
+      </button>
     </div>
   </aside>
 
@@ -187,6 +211,19 @@
     </div>
 
   </main>
+</div>
+
+<!-- Logout confirmation modal -->
+<div id="logoutModal" class="logout-modal-backdrop" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="logout-modal">
+    <div class="logout-modal-icon"><i class="bi bi-box-arrow-right"></i></div>
+    <h5>Log out?</h5>
+    <p>Are you sure you want to log out?</p>
+    <div class="logout-modal-actions">
+      <button class="btn-cancel" onclick="document.getElementById('logoutModal').classList.remove('show')">No, stay</button>
+      <a href="{% url 'logout' %}" class="btn-confirm">Yes, log out</a>
+    </div>
+  </div>
 </div>
 
 {% else %}
