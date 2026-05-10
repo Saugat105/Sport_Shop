@@ -178,19 +178,19 @@ if DEBUG:
 else:
     # Production: real email via Gmail SMTP
     EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST          = 'smtp.gmail.com'
+    EMAIL_HOST          = 'smtp.sendgrid.net'
     EMAIL_PORT          = 587
     EMAIL_USE_TLS       = True
-    EMAIL_HOST_USER     = os.environ.get('EMAIL_USER', '')
-    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASSWORD', '')
+    EMAIL_HOST_USER     = 'apikey'  # SendGrid uses 'apikey' as the username    
+    EMAIL_HOST_PASSWORD = os.environ.get('SENDGRID_API_KEY ', '')
     EMAIL_TIMEOUT       = 10  # seconds
 
-DEFAULT_FROM_EMAIL = f"Sport Shop Nepal <{os.environ.get('EMAIL_USER', 'noreply@sportshop.com')}>"
+DEFAULT_FROM_EMAIL = f"Sport Shop Nepal <{os.environ.get('EMAIL_USER', 'saugat.python@gmail.com')}>"
 
 
 # ═══════════════════════════════════════════════════════════════
 # SITE URL (used for verification email links)
-# ═══════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════
 
 SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
 
